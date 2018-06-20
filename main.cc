@@ -33,12 +33,25 @@ struct Statistics {
 //std::map< int, std::string > watched_files_;
 
 
+
+/* 
+ * The main queue is here.
+ * 
+ * Actually, we need a SPMS (single producer - multiple consumers) queue,
+ * but because I'm lazy and before I find a better solution I use a simple wrapper
+ * of std::dequeue. 
+ * 
+ * Notes about boost: Unfortunately, boost::lockfree::queue cannot be used
+ * because it requires trivial assignment operator and trivial destructor.
+ * And that std::string doesn't have.
+ *
+ * TODO: check this: http://moodycamel.com/blog/2014/detailed-design-of-a-lock-free-queue
+ */
 typedef tools::synchronized::queue<std::string> FileNameQueue_t;
 
 
-class RunDirectoryObserver {
-
-public:
+struct RunDirectoryObserver {
+    // Note that this class cannot be copied or moved because of queue
 
     enum class State { INIT, STARTING, READY, STOP };
 
@@ -46,7 +59,7 @@ public:
     {
         switch (state)
         {
-            case RunDirectoryObserver::State::INIT :      return os << "INIT" ;
+            case RunDirectoryObserver::State::INIT:       return os << "INIT" ;
             case RunDirectoryObserver::State::STARTING:   return os << "STARTING";
             case RunDirectoryObserver::State::READY:      return os << "READY";
             case RunDirectoryObserver::State::STOP:       return os << "STOP";
@@ -54,7 +67,95 @@ public:
         };
         return os;
     }
-    
+
+    RunDirectoryObserver(int runNumber) : runNumber(runNumber) {}
+
+    int runNumber;
+    FileNameQueue_t queue;
+
+    std::atomic<State> state { State::INIT };
+    std::atomic<bool> running { true };
+    std::thread runner;
+};
+
+
+
+typedef std::function<void(RunDirectoryObserver&)> RunDirectoryRunner_t;
+
+
+class RunDirectoryManager {
+
+public:
+    RunDirectoryManager(RunDirectoryRunner_t runner) : runner_(runner) {}
+
+public:
+    RunDirectoryObserver& getRunDirectoryObserver(int runNumber)
+    {
+        {
+            std::lock_guard<tools::synchronized::spinlock> lock(runDirectoryObserversLock_);
+
+            // Check if we already have observer for that run
+            const auto iter = runDirectoryObservers_.find( runNumber );
+            if (iter != runDirectoryObservers_.end()) {
+                return iter->second;
+            }
+        }
+
+        // No, we don't have. We create a new one
+        return createRunDirectoryObserver( runNumber );
+    }
+
+private:
+
+    void startRunner(RunDirectoryObserver& observer) 
+    {
+        assert( observer.state == RunDirectoryObserver::State::INIT );
+        observer.runner = std::thread(runner_, std::ref(observer));
+        observer.runner.detach();
+        observer.state = RunDirectoryObserver::State::STARTING;
+    }
+
+
+    RunDirectoryObserver& createRunDirectoryObserver(int runNumber)
+    {
+        std::unique_lock<tools::synchronized::spinlock> lock(runDirectoryObserversLock_);
+        //{
+            // Constructs a new runDirectoryObserver in the map directly
+            auto emplaceResult = runDirectoryObservers_.emplace(std::piecewise_construct,
+                std::forward_as_tuple(runNumber), 
+                std::forward_as_tuple(runNumber)
+            );
+            // Normally, the runNumber was not in the map before, but better be safe
+            assert( emplaceResult.second == true );
+
+            auto iter = emplaceResult.first;
+            RunDirectoryObserver& observer = iter->second;
+        //}
+        lock.unlock();
+
+        std::cout << "DEBUG: runDirectoryObserver created for runNumber: " << iter->first << std::endl;
+
+        //TODO: observer.start();
+        startRunner(observer);
+
+        return observer;
+    }
+
+
+private:
+    RunDirectoryRunner_t runner_;
+
+    std::unordered_map< int, RunDirectoryObserver > runDirectoryObservers_;
+
+    // Would be better to use shared_mutex, but for the moment there is only one reader, so the spinlock is the best
+    tools::synchronized::spinlock runDirectoryObserversLock_;    
+};
+
+
+/*
+class RunDirectoryObserver {
+
+public:    
 
     RunDirectoryObserver(int runNumber) : runNumber_(runNumber) {}
     ~RunDirectoryObserver()
@@ -116,22 +217,7 @@ private:
 
     FileNameQueue_t queue_;
 };
-
-
-
-/* 
- * The main queue is here.
- * 
- * Actually, we need a SPMS (single producer - multiple consumers) queue,
- * but because I'm lazy and before I find a better solution I use a simple wrapper
- * of std::dequeue. 
- * 
- * Notes about boost: Unfortunately, boost::lockfree::queue cannot be used
- * because it requires trivial assignment operator and trivial destructor.
- * And that std::string doesn't have.
- *
- * TODO: check this: http://moodycamel.com/blog/2014/detailed-design-of-a-lock-free-queue
- */
+*/
 
 
 
@@ -139,9 +225,10 @@ private:
 std::unordered_map< int, FileNameQueue_t > runQueues;
 std::mutex runQueuesLock;
 
-std::unordered_map< int, RunDirectoryObserver > runDirectoryObservers;
-// Would be better to use shared_mutex, but for the moment there is only one reader, so it is the spinlock is the best
-tools::synchronized::spinlock runDirectoryObserversLock;
+// Forward declaration
+void directoryObserverRunner(RunDirectoryObserver& observer);
+
+RunDirectoryManager runDirectoryManager { directoryObserverRunner };
 
 
 
@@ -160,9 +247,6 @@ void testINotify(const std::string& runDirectory)
 
 
 
-
-//TODO: Implement runDirectoryObserver
-// Thread
 
 std::atomic<bool> done(false);
 
@@ -208,61 +292,29 @@ void runDirectoryObserver(int runNumber)
 
 
 
-
-
-
-RunDirectoryObserver& createRunDirectoryObserver(int runNumber)
+void directoryObserverRunner(RunDirectoryObserver& observer)
 {
-     std::unique_lock<tools::synchronized::spinlock> lock(runDirectoryObserversLock);
-    //{
-        // Constructs a new runDirectoryObserver in the map directly
-        auto emplaceResult = runDirectoryObservers.emplace(std::piecewise_construct,
-            std::forward_as_tuple(runNumber), 
-            std::forward_as_tuple(runNumber)
-        );
-        // Normally, the runNumber was not in the map before, but better be safe
-        assert( emplaceResult.second == true );
-
-        auto iter = emplaceResult.first;
-        RunDirectoryObserver& observer = iter->second;
-    //}
-    lock.unlock();
-
-    std::cout << "DEBUG: runDirectoryObserver creater for runNumber: " << iter->first << std::endl;
-    observer.start();
-
-    return observer;
-}
-
-
-RunDirectoryObserver& getRunDirectoryObserver(int runNumber)
-{
-    {
-        std::lock_guard<tools::synchronized::spinlock> lock(runDirectoryObserversLock);
-
-        // Check if we already have observer for that run
-        const auto iter = runDirectoryObservers.find( runNumber );
-        if (iter != runDirectoryObservers.end()) {
-            return iter->second;
-        }
+    while (observer.running) {
+        std::cout << "RunDirectoryObserver: Alive" << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
-
-    // No, we don't have. We create a new one
-    return createRunDirectoryObserver( runNumber );
+    std::cout << "RunDirectoryObserver: Finished" << std::endl;
+    observer.state = RunDirectoryObserver::State::STOP;
 }
+
 
 
 //TODO: Split into two functions
 bool getFileFromBU(int runNumber, std::string& fileName)
 {
-    RunDirectoryObserver& observer = getRunDirectoryObserver( runNumber );
+    RunDirectoryObserver& observer = runDirectoryManager.getRunDirectoryObserver( runNumber );
 
-    if (observer.state() == RunDirectoryObserver::State::READY) {
-        FileNameQueue_t& queue = observer.queue();
+    if (observer.state == RunDirectoryObserver::State::READY) {
+        FileNameQueue_t& queue = observer.queue;
         return queue.pop(fileName);     
     }
 
-    std::cout << "DEBUG: RunDirectoryObserver " << runNumber << " is not READY, it is " << observer.state() << std::endl;
+    std::cout << "DEBUG: RunDirectoryObserver " << runNumber << " is not READY, it is " << observer.state << std::endl;
     return false;
 }
 

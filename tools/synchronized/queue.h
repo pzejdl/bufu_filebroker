@@ -1,5 +1,5 @@
-#ifndef SYNCHRONIZED_QUEUE_H
-#define SYNCHRONIZED_QUEUE_H
+#ifndef _SYNCHRONIZED_QUEUE_H_
+#define _SYNCHRONIZED_QUEUE_H_
 
 #include <deque>
 #include <mutex>
@@ -68,4 +68,4 @@ namespace tools {
     }
 }
 
-#endif // SYNCHRONIZED_QUEUE_H
+#endif // _SYNCHRONIZED_QUEUE_H_
