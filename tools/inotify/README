@@ -1,0 +1,12 @@
+inotify filesystem options
+
+sysctl fs.inotify
+
+opened files
+
+lsof | grep inotify | wc -l
+
+Increase the values like this
+
+    sysctl -n -w fs.inotify.max_user_watches=16384
+    sysctl -n -w fs.inotify.max_user_instances=512
