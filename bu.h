@@ -23,5 +23,5 @@ namespace bu {
 
     typedef std::vector<std::string> files_t;
     
-    files_t getFilesInRunDirectory(const std::string& runDirectory);
+    files_t listFilesInRunDirectory(const std::string& runDirectory);
 }

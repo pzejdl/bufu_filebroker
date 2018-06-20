@@ -13,7 +13,7 @@ fs::path bu::getRunDirectory(int runNumber) {
     return baseDirectory / ("run" + std::to_string(runNumber)); 
 }
 
-bu::files_t bu::getFilesInRunDirectory(const std::string& runDirectory)
+bu::files_t bu::listFilesInRunDirectory(const std::string& runDirectory)
 {
     files_t result;
 
