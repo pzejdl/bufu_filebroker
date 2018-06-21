@@ -8,7 +8,7 @@
 namespace bu {
 
     struct FileInfo {
-        enum class FileType : uint32_t { INDEX, EOLS, EOR };
+        enum class FileType : uint32_t { INDEX, EOLS, EOR, EMPTY };
 
         friend std::ostream& operator<< (std::ostream& os, const FileInfo::FileType type)
         {
@@ -16,10 +16,15 @@ namespace bu {
                 case FileInfo::FileType::INDEX: return os << "index" ;
                 case FileInfo::FileType::EOLS:  return os << "EoLS";
                 case FileInfo::FileType::EOR:   return os << "EoR";
+
+                case FileInfo::FileType::EMPTY: THROW(std::domain_error, "FileType is not initialized (is EMPTY).");
                 // Omit default case to trigger compiler warning for missing cases
             };
             return os;
         }
+
+        // Creates empty object so a proper one can be moved in later
+        FileInfo() : type(FileType::EMPTY) {}
 
         // Create an index file
         FileInfo(uint32_t runNumber, uint32_t lumiSection, uint32_t index)
@@ -42,7 +47,7 @@ namespace bu {
          * Note: A filename returned by this method is re-constructed from information contained in this object,
          *       it is not the original filename. But it must have the same name.
          */
-        std::string filename() const {
+        std::string fileName() const {
             std::ostringstream os;
             // From Remi's DiskWriter.cc
             os << std::setfill('0') <<
@@ -56,12 +61,13 @@ namespace bu {
         }
 
         friend std::ostream& operator<<(std::ostream& os, const FileInfo file) {
-            os  << "FIleInfo(runNumber=" << file.runNumber 
+            os  << "FIleInfo(" 
+                << "filename='" << file.fileName()
+                << "', runNumber=" << file.runNumber 
                 << ", lumiSection=" << file.lumiSection 
                 << ", index=" << file.index
                 << ", type=" << file.type
-                << ", filename='" << file.filename()
-                << "')";
+                << ')';
             return os;
         }
 
