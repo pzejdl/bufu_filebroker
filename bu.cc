@@ -24,31 +24,24 @@ bu::files_t bu::listFilesInRunDirectory(const std::string& runDirectory)
      */ 
     const std::regex fileFilter( "run.*\\.jsn" );
 
-    // Check if EoR was found
-    std::string fileEoR;
-
     // Iterate over the run directory
-    for ( auto&& dirEntry: boost::make_iterator_range(fs::directory_iterator( runDirectory ), {}) ) {
+    for ( const auto& dirEntry: boost::make_iterator_range(fs::directory_iterator( runDirectory ), {}) ) {
         // With C++17 we don't need boost:make_iterator_range
 
-        std::string fileName = dirEntry.path().filename().string();
+        const std::string fileName = std::move( dirEntry.path().filename().string() );
 
         if ( std::regex_match( fileName, fileFilter) ) {
-            if ( File::isEoR(fileName) ) {
-                fileEoR = fileName;
-            } else {
-                result.push_back( std::move(fileName) );
-            }
+            bu::FileInfo file = bu::temporary::parseFileName( fileName.c_str() );
+
+            // Consistency check for the moment
+            assert( fileName == (file.fileName() + ".jsn") );
+
+            result.push_back( std::move(file) );
         }
     }
 
     // Sort the files according LS and INDEX numbers
     std::sort(result.begin(), result.end());
-
-    // Put the EoR at the end
-    if (!fileEoR.empty()) {
-        result.push_back( fileEoR );
-    }
 
 
     // typedef std::vector<fs::path> vec;             // store paths,

@@ -65,11 +65,11 @@ void testINotify(const std::string& runDirectory)
 void processFiles(RunDirectoryObserver& observer, bu::files_t& files) 
 {
     // Move to the queue
-    for (auto&& fileName : files) {
-        bu::FileInfo file = bu::parseFileName( fileName.c_str() );
+    for (auto&& file : files) {
+        //bu::FileInfo file = bu::parseFileName( fileName.c_str() );
 
         // Consistency check for the moment
-        assert( fileName == (file.fileName() + ".jsn") );
+        //assert( fileName == (file.fileName() + ".jsn") );
 
         observer.queue.push( std::move(file) );
     }
@@ -146,7 +146,6 @@ namespace fu {
 
         while (!done) {
             bu::FileInfo file;
-            std::cout << file;
 
             if ( getFileFromBU(runNumber, file) ) {
                 std::cout << "Requester: " << runNumber << ": " << file << std::endl;
