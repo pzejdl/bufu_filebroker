@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <thread>
+#include <atomic>
 #include <unordered_map>
 #include <cassert>
 
@@ -38,10 +39,11 @@ struct RunDirectoryObserver {
             case RunDirectoryObserver::State::STARTING:   return os << "STARTING";
             case RunDirectoryObserver::State::READY:      return os << "READY";
             case RunDirectoryObserver::State::STOP:       return os << "STOP";
-            // omit default case to trigger compiler warning for missing cases
+            // Omit default case to trigger compiler warning for missing cases
         };
         return os;
     }
+
 
     RunDirectoryObserver(int runNumber) : runNumber(runNumber) {}
 
@@ -51,6 +53,15 @@ struct RunDirectoryObserver {
     std::atomic<State> state { State::INIT };
     std::atomic<bool> running { true };
     std::thread runner;
+
+    //TODO
+    struct Statistics {
+        std::atomic<std::uint32_t> indexSeenOnBU {0};
+        std::atomic<std::uint32_t> indexGivenToFU {0};
+        // When lastEoLS == 0 then there was no jsn files found
+        std::atomic<std::uint32_t> lastEoLS {0};
+        std::atomic<bool> isEoR {false};
+    } stats;
 };
 
 

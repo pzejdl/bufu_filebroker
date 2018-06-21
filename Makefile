@@ -55,5 +55,5 @@ ${TARGET}: ${OBJECTS}
 
 #test2.o : product.h test2.h
 
-main.o: 	tools/synchronized/queue.h tools/inotify/INotify.h tools/tools.h RunDirectory.h
+main.o: 	tools/synchronized/queue.h tools/inotify/INotify.h tools/tools.h RunDirectory.h bu/FileInfo.h
 bu.o: 		bu.h 

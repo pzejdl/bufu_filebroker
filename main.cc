@@ -10,9 +10,12 @@
 #include <unordered_map>
 
 #include "tools/inotify/INotify.h"
+#include "tools/exception.h"
 #include "tools/tools.h"
-#include "bu.h"
 
+#include "bu/FileInfo.h"
+
+#include "bu.h"
 #include "RunDirectory.h"
 
 namespace fs = boost::filesystem;
@@ -59,6 +62,21 @@ void testINotify(const std::string& runDirectory)
 
 
 
+void processFiles(RunDirectoryObserver& observer, bu::files_t& files) 
+{
+    // Move to the queue
+    for (auto&& fileName : files) {
+        bu::FileInfo file = bu::parseFileName( fileName.c_str() );
+        std::cout << "DEBUG: " << file << std::endl;
+
+        // Consistency check for the moment
+        assert( fileName == (file.filename() + ".jsn") );
+
+        observer.queue.push( std::move(fileName) );
+    }
+}
+
+
 
 /*
  * The main function responsible for finding files on BU.
@@ -75,10 +93,7 @@ void directoryObserverRunner(RunDirectoryObserver& observer)
     bu::files_t result = bu::listFilesInRunDirectory( runDirectory.string() );
     std::cout << "directoryObserver: Found " << result.size() << " files" << std::endl;
 
-    // Add to the queue
-    for (auto&& item : result) {
-        observer.queue.push( std::move(item) );
-    }
+    processFiles(observer, result);
 
     // FUs can start reading from our queue NOW
     observer.state = RunDirectoryObserver::State::READY;
