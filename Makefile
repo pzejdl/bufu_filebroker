@@ -21,8 +21,8 @@ OBJECTS = $(SOURCES:.cc=.o)
 # appropriate rules; CXXFLAGS gets passed as part of command
 # invocation for both compilation (where -c is needed) and linking
 # (where it's not.)
-#CXXFLAGS = -std=c++11 -Wall -Wextra -O2 -g -I.
-CXXFLAGS = -std=c++11 -Wall -Wextra -O2 -g -pthread
+#CXXFLAGS = -std=c++11 -Wall -Wextra -O2 -g 
+CXXFLAGS = -std=c++11 -Wall -Wextra -O2 -g -rdynamic -pthread
 
 LDFLAGS = -lboost_system -lboost_filesystem
 
@@ -55,5 +55,5 @@ ${TARGET}: ${OBJECTS}
 
 #test2.o : product.h test2.h
 
-main.o: 	tools/synchronized/queue.h tools/inotify/INotify.h tools/tools.h RunDirectory.h bu/FileInfo.h
+main.o: 	tools/synchronized/queue.h tools/inotify/INotify.h tools/tools.h RunDirectory.h bu/FileInfo.h tools/exception.h
 bu.o: 		bu.h 

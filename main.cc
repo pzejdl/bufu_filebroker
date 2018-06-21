@@ -146,6 +146,7 @@ namespace fu {
 
         while (!done) {
             bu::FileInfo file;
+            std::cout << file;
 
             if ( getFileFromBU(runNumber, file) ) {
                 std::cout << "Requester: " << runNumber << ": " << file << std::endl;
