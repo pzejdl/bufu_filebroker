@@ -24,20 +24,25 @@ bu::files_t bu::listFilesInRunDirectory(const std::string& runDirectory)
      */ 
     const std::regex fileFilter( "run.*\\.jsn" );
 
-    // Iterate over the run directory
-    for ( const auto& dirEntry: boost::make_iterator_range(fs::directory_iterator( runDirectory ), {}) ) {
-        // With C++17 we don't need boost:make_iterator_range
+    try {
+        // Iterate over the run directory
+        for ( const auto& dirEntry: boost::make_iterator_range(fs::directory_iterator( runDirectory ), {}) ) {
+            // With C++17 we don't need boost:make_iterator_range
 
-        const std::string fileName = std::move( dirEntry.path().filename().string() );
+            const std::string fileName = std::move( dirEntry.path().filename().string() );
 
-        if ( std::regex_match( fileName, fileFilter) ) {
-            bu::FileInfo file = bu::temporary::parseFileName( fileName.c_str() );
+            if ( std::regex_match( fileName, fileFilter) ) {
+                bu::FileInfo file = bu::temporary::parseFileName( fileName.c_str() );
 
-            // Consistency check for the moment
-            assert( fileName == (file.fileName() + ".jsn") );
+                // Consistency check for the moment
+                assert( fileName == (file.fileName() + ".jsn") );
 
-            result.push_back( std::move(file) );
+                result.push_back( std::move(file) );
+            }
         }
+    }
+    catch (const std::exception &e) {
+        RETHROW( std::runtime_error, "Error during directory listing: '" + runDirectory + "'.");
     }
 
     // Sort the files according LS and INDEX numbers

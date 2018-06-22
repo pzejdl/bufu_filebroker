@@ -81,15 +81,15 @@ void processFiles(RunDirectoryObserver& observer, bu::files_t& files)
  * The main function responsible for finding files on BU.
  * Is run in a separate thread for each run directory that FU asks. 
  */
-void directoryObserverRunner(RunDirectoryObserver& observer)
+void directoryObserverRunner_main(RunDirectoryObserver& observer)
 {
     THREAD_DEBUG();
 
-    const fs::path runDirectory = bu::getRunDirectory( observer.runNumber ); 
-    std::cout << "directoryObserver: Watching: " << runDirectory << std::endl;
+    const std::string& runDirectoryPath = bu::getRunDirectory( observer.runNumber ).string(); 
+    std::cout << "directoryObserver: Watching: " << runDirectoryPath << std::endl;
 
     // List files in run directory
-    bu::files_t result = bu::listFilesInRunDirectory( runDirectory.string() );
+    bu::files_t result = bu::listFilesInRunDirectory( runDirectoryPath );
     std::cout << "directoryObserver: Found " << result.size() << " files" << std::endl;
 
     processFiles(observer, result);
@@ -97,9 +97,11 @@ void directoryObserverRunner(RunDirectoryObserver& observer)
     // FUs can start reading from our queue NOW
     observer.state = RunDirectoryObserver::State::READY;
 
+    /*
+     **************************************************************************/
 
     tools::INotify inotify;
-    inotify.add_watch( runDirectory.string(), IN_MODIFY | IN_CREATE | IN_DELETE);
+    inotify.add_watch( runDirectoryPath, IN_MODIFY | IN_CREATE | IN_DELETE);
 
     // Process any new file receives through INotify
     while (observer.running) {
@@ -117,6 +119,15 @@ void directoryObserverRunner(RunDirectoryObserver& observer)
     observer.state = RunDirectoryObserver::State::STOP;
 }
 
+void directoryObserverRunner(RunDirectoryObserver& observer)
+{
+    try {
+        directoryObserverRunner_main(observer);
+    }
+    catch(const std::exception& e) {
+        BACKTRACE_AND_RETHROW( std::runtime_error, "Unhandled exception detected." );
+    } 
+}
 
 
 
@@ -140,7 +151,7 @@ bool getFileFromBU(int runNumber, bu::FileInfo& file)
 namespace fu {
     std::atomic<bool> done(false);
 
-    void requester(int runNumber)
+    void requester_main(int runNumber)
     {
         THREAD_DEBUG();
 
@@ -156,6 +167,17 @@ namespace fu {
         }
         std::cout << "Requester: Finished" << std::endl;
     }
+
+    void requester(int runNumber)
+    {
+        try {
+            requester_main(runNumber);
+        }
+        catch(const std::exception& e) {
+            BACKTRACE_AND_RETHROW( std::runtime_error, "Unhandled exception detected." );
+        }
+    }
+
 }
 
 
@@ -176,8 +198,11 @@ int main()
 
         //requester.join();
     }
-    catch (const std::system_error& ex) {
-        std::cout << "Error: " << ex.code() << " - " << ex.what() << '\n';
+    catch (const std::system_error& e) {
+        std::cout << "Error: " << e.code() << " - " << e.what() << '\n';
+    }
+    catch(const std::exception& e) {
+        BACKTRACE_AND_RETHROW( std::runtime_error, "Unhandled exception detected." );
     }
 
     return 0;
