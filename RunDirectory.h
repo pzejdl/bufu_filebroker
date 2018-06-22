@@ -9,6 +9,8 @@
 
 #include "tools/synchronized/queue.h"
 
+#include "bu/FileInfo.h"
+
 
 /* 
  * The main queue is here.
@@ -23,7 +25,13 @@
  *
  * TODO: check this: http://moodycamel.com/blog/2014/detailed-design-of-a-lock-free-queue
  */
-typedef tools::synchronized::queue<std::string> FileNameQueue_t;
+
+//#include <boost/lockfree/queue.hpp>
+//boost::lockfree::queue<bu::FileInfo> queue_test;
+
+ // Changed from std::string to bu::FileInfo
+ //typedef tools::synchronized::queue<std::string> FileNameQueue_t;
+typedef tools::synchronized::queue<bu::FileInfo> FileQueue_t;
 
 
 struct RunDirectoryObserver {
@@ -48,7 +56,7 @@ struct RunDirectoryObserver {
     RunDirectoryObserver(int runNumber) : runNumber(runNumber) {}
 
     int runNumber;
-    FileNameQueue_t queue;
+    FileQueue_t queue;
 
     std::atomic<State> state { State::INIT };
     std::atomic<bool> running { true };

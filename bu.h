@@ -3,6 +3,8 @@
 #include <regex>
 #include <boost/filesystem.hpp>
 
+#include "bu/FileInfo.h"
+
 namespace fs = boost::filesystem;
 
 
@@ -21,7 +23,7 @@ namespace bu {
 
     fs::path getRunDirectory(int runNumber);
 
-    typedef std::vector<std::string> files_t;
+    typedef std::vector<bu::FileInfo> files_t;
     
     files_t listFilesInRunDirectory(const std::string& runDirectory);
 }

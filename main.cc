@@ -65,14 +65,13 @@ void testINotify(const std::string& runDirectory)
 void processFiles(RunDirectoryObserver& observer, bu::files_t& files) 
 {
     // Move to the queue
-    for (auto&& fileName : files) {
-        bu::FileInfo file = bu::parseFileName( fileName.c_str() );
-        std::cout << "DEBUG: " << file << std::endl;
+    for (auto&& file : files) {
+        //bu::FileInfo file = bu::parseFileName( fileName.c_str() );
 
         // Consistency check for the moment
-        assert( fileName == (file.filename() + ".jsn") );
+        //assert( fileName == (file.fileName() + ".jsn") );
 
-        observer.queue.push( std::move(fileName) );
+        observer.queue.push( std::move(file) );
     }
 }
 
@@ -122,13 +121,13 @@ void directoryObserverRunner(RunDirectoryObserver& observer)
 
 
 //TODO: Split into two functions
-bool getFileFromBU(int runNumber, std::string& fileName)
+bool getFileFromBU(int runNumber, bu::FileInfo& file)
 {
     RunDirectoryObserver& observer = runDirectoryManager.getRunDirectoryObserver( runNumber );
 
     if (observer.state == RunDirectoryObserver::State::READY) {
-        FileNameQueue_t& queue = observer.queue;
-        return queue.pop(fileName);     
+        FileQueue_t& queue = observer.queue;
+        return queue.pop(file);     
     }
 
     std::cout << "DEBUG: RunDirectoryObserver " << runNumber << " is not READY, it is " << observer.state << std::endl;
@@ -141,16 +140,15 @@ bool getFileFromBU(int runNumber, std::string& fileName)
 namespace fu {
     std::atomic<bool> done(false);
 
-
     void requester(int runNumber)
     {
         THREAD_DEBUG();
 
         while (!done) {
-            std::string fileName;
+            bu::FileInfo file;
 
-            if ( getFileFromBU(runNumber, fileName) ) {
-                std::cout << "Requester: " << runNumber << ": " << fileName << std::endl;
+            if ( getFileFromBU(runNumber, file) ) {
+                std::cout << "Requester: " << runNumber << ": " << file << std::endl;
             } else {
                 std::cout << "Requester: " << runNumber << ": EMPTY" << std::endl;
                 std::this_thread::sleep_for(std::chrono::milliseconds(700));
