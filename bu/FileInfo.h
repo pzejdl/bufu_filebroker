@@ -71,7 +71,7 @@ namespace bu {
             return os;
         }
 
-        bool operator<(const FileInfo& other) const {
+        inline bool operator<(const FileInfo& other) const {
             #define SCORE(o)    ( (uint64_t) ( \
                                 ((uint64_t)(o).lumiSection << 32) | (uint64_t)(o).index | \
                                 ((o).isEoLS() ? 0x80000000 : 0) | \
@@ -92,6 +92,18 @@ namespace bu {
         FileType type;    
     };
 
+    // Operator for std::sort
+    //inline bool operator< (const FileInfo& l, const FileInfo& r) {}
+
+    // Operator for std::find
+    inline bool operator==(const FileInfo& l, const FileInfo& r) {
+        return ( 
+            l.index == r.index &&
+            l.lumiSection == r.lumiSection &&
+            l.runNumber == r.runNumber &&
+            l.type == r.type
+        );
+    }
 
     struct temporary {
         // TODO: Move this function somewhere else (FileInfo.cc), or actually make a constructor 

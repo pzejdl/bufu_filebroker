@@ -5,6 +5,16 @@
 #include <vector>
 #include <ostream>
 
+
+       #include <errno.h>
+       #include <poll.h>
+       #include <stdio.h>
+       #include <stdlib.h>
+       #include <sys/inotify.h>
+       #include <unistd.h>
+
+#include <cassert>
+
 namespace tools {
 
     class INotify {
@@ -32,6 +42,28 @@ namespace tools {
 
         int add_watch(const std::string& pathname, uint32_t mask);
 
+        bool hasEvent()
+        {
+            assert( fd_ > 0 );
+            nfds_t nfds = 1;
+            struct pollfd fds = { fd_, POLLIN, 0 };
+            int nbPoll;
+
+            while (true) {
+                nbPoll = poll(&fds, nfds, 0);
+                if (nbPoll < 0) {
+                    if (errno == EINTR) {
+                        // Interrupted by signal, has to restart
+                        continue;
+                    }
+                    // Error happened
+                    throw std::system_error(errno, std::system_category(), "poll");
+                }
+                break; 
+            }
+            return (nbPoll > 0) && (fds.revents & POLLIN);
+        }
+
         Events_t read();
         //void read();
 
@@ -39,6 +71,6 @@ namespace tools {
         void read_event();
 
     private:
-        int fd_;
+        int fd_ = -1;
     };
 }

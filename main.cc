@@ -1,6 +1,7 @@
 #include <iostream>
 #include <system_error>
-#include <regex>
+//#include <regex>
+#include <boost/regex.hpp>
 
 #include <boost/format.hpp>
 #include <boost/filesystem.hpp>
@@ -61,7 +62,6 @@ void testINotify(const std::string& runDirectory)
 }
 
 
-
 void processFiles(RunDirectoryObserver& observer, bu::files_t& files) 
 {
     // Move to the queue
@@ -76,7 +76,6 @@ void processFiles(RunDirectoryObserver& observer, bu::files_t& files)
 }
 
 
-
 /*
  * The main function responsible for finding files on BU.
  * Is run in a separate thread for each run directory that FU asks. 
@@ -85,14 +84,65 @@ void directoryObserverRunner_main(RunDirectoryObserver& observer)
 {
     THREAD_DEBUG();
 
-    const std::string& runDirectoryPath = bu::getRunDirectory( observer.runNumber ).string(); 
-    std::cout << "directoryObserver: Watching: " << runDirectoryPath << std::endl;
+    /*
+     * .jsn file filter definition
+     *  Examples:
+     *    run1000030354_ls0000_EoR.jsn
+     *    run1000030354_ls0017_EoLS.jsn
+     *    run1000030348_ls0511_index020607.jsn
+     * 
+     * NOTE: std::regex is broken until gcc 4.9.0. Using boost::regex
+     */
+    static const boost::regex fileFilter( "run[0-9]+_ls[0-9]+_.*\\.jsn" );
+    //const std::regex fileFilter( "run[0-9]+_ls[0-9]+_.*\\.jsn" );
+
+
+    const std::string runDirectoryPath = bu::getRunDirectory( observer.runNumber ).string(); 
+    std::cout << "DirectoryObserver: Watching: " << runDirectoryPath << std::endl;
+
+    /**************************************************************************
+     */
+
+    // INotify has to be set before we list the directory content, otherwise we have a race condition...
+    tools::INotify inotify;
+    inotify.add_watch( runDirectoryPath, IN_CREATE );
+    std::cout << "DirectoryObserver: INotify started." << std::endl;
 
     // List files in run directory
-    bu::files_t result = bu::listFilesInRunDirectory( runDirectoryPath );
-    std::cout << "directoryObserver: Found " << result.size() << " files" << std::endl;
+    bu::files_t files = bu::listFilesInRunDirectory( runDirectoryPath, fileFilter );
+    std::cout << "DirectoryObserver: Found " << files.size() << " files in run directory." << std::endl;
 
-    processFiles(observer, result);
+    // Now, we have to read the first batch events from INotify. 
+    // And we have to make sure they are not duplicated in the directory listing obtained before.
+    if ( inotify.hasEvent() ) {
+        int nbFilesSeen = 0;
+        int nbFilesAdded = 0;
+        std::cout << "DirectoryObserver: INotify has something." << std::endl;
+        
+        for (auto&& event : inotify.read()) {
+            if ( boost::regex_match( event.name, fileFilter) ) {
+                nbFilesSeen++;
+
+                bu::FileInfo file = bu::temporary::parseFileName( event.name.c_str() );
+
+                // Add files that are not duplicates
+                if ( std::find(files.begin(), files.end(), file) == files.end() ) {
+                    files.push_back( std::move( file ));
+                    nbFilesAdded++;
+                } 
+            }
+        }
+        std::cout << "DirectoryObserver: INotify saw:   " << nbFilesSeen << " files." << std::endl;
+        std::cout << "DirectoryObserver: INotify added: " << nbFilesAdded << " files." << std::endl;
+    }
+
+    // Sort the files according LS and INDEX numbers
+    std::sort(files.begin(), files.end());
+
+    /**************************************************************************
+     */
+
+    processFiles(observer, files);
 
     // FUs can start reading from our queue NOW
     observer.state = RunDirectoryObserver::State::READY;
@@ -100,22 +150,21 @@ void directoryObserverRunner_main(RunDirectoryObserver& observer)
     /*
      **************************************************************************/
 
-    tools::INotify inotify;
-    inotify.add_watch( runDirectoryPath, IN_MODIFY | IN_CREATE | IN_DELETE);
+
 
     // Process any new file receives through INotify
     while (observer.running) {
 
         for (auto&& event : inotify.read()) {
-            std::cout << event;
+            std::cout << event << std::endl;
         }
 
-        std::cout << "directoryObserver: Alive" << std::endl;
+        std::cout << "DirectoryObserver: Alive" << std::endl;
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
 
     // Hola, finito!
-    std::cout << "directoryObserver: Finished" << std::endl;
+    std::cout << "DirectoryObserver: Finished" << std::endl;
     observer.state = RunDirectoryObserver::State::STOP;
 }
 
@@ -141,7 +190,7 @@ bool getFileFromBU(int runNumber, bu::FileInfo& file)
         return queue.pop(file);     
     }
 
-    std::cout << "DEBUG: RunDirectoryObserver " << runNumber << " is not READY, it is " << observer.state << std::endl;
+    std::cout << "Requester: RunDirectoryObserver " << runNumber << " is not READY, it is " << observer.state << std::endl;
     return false;
 }
 
@@ -183,8 +232,8 @@ namespace fu {
 
 int main()
 {
-    int runNumber = 1000030354;
-    //int runNumber = 615052;
+    //int runNumber = 1000030354;
+    int runNumber = 615052;
 
     std::cout << boost::format("HOHOHO: %u\n") % 123;
 
@@ -192,9 +241,9 @@ int main()
         std::thread requester( fu::requester, runNumber );
         requester.detach();
 
-        std::this_thread::sleep_for(std::chrono::seconds(30));
-        fu::done = true;
         std::this_thread::sleep_for(std::chrono::seconds(2));
+        fu::done = true;
+        std::this_thread::sleep_for(std::chrono::seconds(200));
 
         //requester.join();
     }

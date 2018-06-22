@@ -1,3 +1,7 @@
+//#include <regex>
+#include <boost/regex.hpp>
+
+
 #include <boost/range.hpp>      // For boost::make_iterator_range
 #include <boost/filesystem.hpp>
 
@@ -13,16 +17,15 @@ fs::path bu::getRunDirectory(int runNumber) {
     return baseDirectory / ("run" + std::to_string(runNumber)); 
 }
 
-bu::files_t bu::listFilesInRunDirectory(const std::string& runDirectory)
+#include <boost/exception/diagnostic_information.hpp> 
+
+
+/* 
+ * This will iterate over run directory and return files matching regular expressing in fileFilter.
+ */
+bu::files_t bu::listFilesInRunDirectory(const std::string& runDirectory, const boost::regex& fileFilter)
 {
     files_t result;
-
-    /* 
-     * This will iterate over run directory and return sorted *.jsn.
-     * The only exception is EoR (end of the run) file which if detected 
-     * is moved to the end of the list.
-     */ 
-    const std::regex fileFilter( "run.*\\.jsn" );
 
     try {
         // Iterate over the run directory
@@ -31,7 +34,7 @@ bu::files_t bu::listFilesInRunDirectory(const std::string& runDirectory)
 
             const std::string fileName = std::move( dirEntry.path().filename().string() );
 
-            if ( std::regex_match( fileName, fileFilter) ) {
+            if ( boost::regex_match( fileName, fileFilter) ) {
                 bu::FileInfo file = bu::temporary::parseFileName( fileName.c_str() );
 
                 // Consistency check for the moment
@@ -44,10 +47,6 @@ bu::files_t bu::listFilesInRunDirectory(const std::string& runDirectory)
     catch (const std::exception &e) {
         RETHROW( std::runtime_error, "Error during directory listing: '" + runDirectory + "'.");
     }
-
-    // Sort the files according LS and INDEX numbers
-    std::sort(result.begin(), result.end());
-
 
     // typedef std::vector<fs::path> vec;             // store paths,
     // vec v;                                // so we can sort them later

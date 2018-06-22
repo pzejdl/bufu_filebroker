@@ -22,9 +22,9 @@ OBJECTS = $(SOURCES:.cc=.o)
 # invocation for both compilation (where -c is needed) and linking
 # (where it's not.)
 #CXXFLAGS = -std=c++11 -Wall -Wextra -O2 -g 
-CXXFLAGS = -std=c++11 -Wall -Wextra -O2 -g -rdynamic -pthread
+CXXFLAGS = -std=c++11 -Wall -Wextra -O0 -g -rdynamic -pthread
 
-LDFLAGS = -lboost_system -lboost_filesystem
+LDFLAGS = -lboost_system -lboost_filesystem -lboost_regex
 
 CPPFLAGS = -I.
 

@@ -26,7 +26,7 @@ tools::INotify::INotify()
 
 tools::INotify::~INotify()
 {
-    std::cerr << "Closing" << std::endl;
+    std::cerr << "INotify: Closing" << std::endl;
     ::close(fd_);     
 }
 
@@ -88,12 +88,11 @@ tools::INotify::Events_t tools::INotify::read()
 
     /* Loop over all events in the buffer */
 
-    for (ptr = buf; ptr < buf + len;
-         ptr += sizeof(struct inotify_event) + event->len) {
+    for (ptr = buf; ptr < buf + len; ptr += sizeof(struct inotify_event) + event->len) {
 
-        event = (const struct inotify_event*)ptr;
+        event = (const struct inotify_event*) ptr;
 
-        tools::INotify::Event ev = { event->wd, event->mask, event->cookie, std::string(event->name, event->len) };
+        tools::INotify::Event ev = { event->wd, event->mask, event->cookie, ( (event->len > 0) ? event->name : "") };
         //events.emplace( ev );
         events.push_back( std::move(ev) );
     }
