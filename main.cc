@@ -24,22 +24,8 @@ namespace fs = boost::filesystem;
 /*
  * Note: 
  *   Boost up to ver 60 doesn't have move semantics for boost::filesystem::path !!!
- *   When necessary, I use std:string.
+ *   When necessary, I use std:::string.
  */
-
-
-struct Statistics {
-    int item1;  // Something
-
-    tools::synchronized::spinlock lock;
-} stats;
-
-
-
-//TODO: We have to put queues for directories into map...
-//std::map< int, std::string > watched_files_;
-
-
 
 // Forward declaration
 void directoryObserverRunner(RunDirectoryObserver& observer);
@@ -48,32 +34,42 @@ RunDirectoryManager runDirectoryManager { directoryObserverRunner };
 
 
 
-void testINotify(const std::string& runDirectory)
+std::string getStats(RunDirectoryObserver& observer, const std::string sep = "")
 {
-    tools::INotify inotify;
-    inotify.add_watch( runDirectory,
-        IN_MODIFY | IN_CREATE | IN_DELETE);
+    RunDirectoryObserver::Statistics& stats = observer.stats;
+    std::ostringstream os;
 
-    while (true) {
-        for (auto&& event : inotify.read()) {
-            std::cout << event;
-        }
-    }
+    os << sep << "startup.nbJsnFiles="                      << stats.startup.nbJsnFiles << std::endl;
+    os << sep << "startup.inotify.nbAllFiles="              << stats.startup.inotify.nbAllFiles << std::endl;
+    os << sep << "startup.inotify.nbJsnFiles="              << stats.startup.inotify.nbJsnFiles << std::endl;
+    os << sep << "startup.inotify.nbJsnFilesDuplicated="    << stats.startup.inotify.nbJsnFilesDuplicated << std::endl;
+    os << std::endl;
+    os << sep << "inotify.nbAllFiles="                      << stats.inotify.nbAllFiles << std::endl;
+    os << sep << "inotify.nbJsnFiles="                      << stats.inotify.nbJsnFiles << std::endl;
+    os << std::endl;
+    os << sep << "nbJsnFilesQueued="                        << stats.nbJsnFilesQueued << std::endl;
+
+    return os.str();
 }
 
 
-void processFiles(RunDirectoryObserver& observer, bu::files_t& files) 
+
+void optimizeAndPushFiles(RunDirectoryObserver& observer, bu::files_t& files) 
 {
-    // Move to the queue
     for (auto&& file : files) {
+
+        // At the moment we add all files
+
         //bu::FileInfo file = bu::parseFileName( fileName.c_str() );
 
         // Consistency check for the moment
         //assert( fileName == (file.fileName() + ".jsn") );
 
         observer.queue.push( std::move(file) );
+        observer.stats.nbJsnFilesQueued++;
     }
 }
+
 
 
 /*
@@ -101,6 +97,7 @@ void directoryObserverRunner_main(RunDirectoryObserver& observer)
     std::cout << "DirectoryObserver: Watching: " << runDirectoryPath << std::endl;
 
     /**************************************************************************
+     * PHASE I - Startup: Inotify is started and the run directory is searched for existing .jsn files
      */
 
     // INotify has to be set before we list the directory content, otherwise we have a race condition...
@@ -108,58 +105,77 @@ void directoryObserverRunner_main(RunDirectoryObserver& observer)
     inotify.add_watch( runDirectoryPath, IN_CREATE );
     std::cout << "DirectoryObserver: INotify started." << std::endl;
 
-    // List files in run directory
+    sleep(5);
+
+    // List files in the run directory
     bu::files_t files = bu::listFilesInRunDirectory( runDirectoryPath, fileFilter );
+    observer.stats.startup.nbJsnFiles = files.size();
     std::cout << "DirectoryObserver: Found " << files.size() << " files in run directory." << std::endl;
 
+    sleep(5);
+
     // Now, we have to read the first batch events from INotify. 
-    // And we have to make sure they are not duplicated in the directory listing obtained before.
+    // And we have to make sure they are not thw same we obtained in listing the run directory before.
     if ( inotify.hasEvent() ) {
-        int nbFilesSeen = 0;
-        int nbFilesAdded = 0;
         std::cout << "DirectoryObserver: INotify has something." << std::endl;
         
         for (auto&& event : inotify.read()) {
+            observer.stats.startup.inotify.nbAllFiles++;
+
             if ( boost::regex_match( event.name, fileFilter) ) {
-                nbFilesSeen++;
+                observer.stats.startup.inotify.nbJsnFiles++;
 
                 bu::FileInfo file = bu::temporary::parseFileName( event.name.c_str() );
 
                 // Add files that are not duplicates
                 if ( std::find(files.begin(), files.end(), file) == files.end() ) {
                     files.push_back( std::move( file ));
-                    nbFilesAdded++;
-                } 
+                } else {
+                    observer.stats.startup.inotify.nbJsnFilesDuplicated++;
+                }
             }
         }
-        std::cout << "DirectoryObserver: INotify saw:   " << nbFilesSeen << " files." << std::endl;
-        std::cout << "DirectoryObserver: INotify added: " << nbFilesAdded << " files." << std::endl;
     }
+
+    std::cout << "DirectoryObserver statistics:" << std::endl;
+    std::cout << getStats(observer, "    ");
 
     // Sort the files according LS and INDEX numbers
     std::sort(files.begin(), files.end());
 
     /**************************************************************************
+     * PHASE II - Optimize: Determine the first usable .jsn file (and skip empty lumisections)
      */
 
-    processFiles(observer, files);
+    optimizeAndPushFiles(observer, files);
 
     // FUs can start reading from our queue NOW
     observer.state = RunDirectoryObserver::State::READY;
 
-    /*
-     **************************************************************************/
-
+    /**************************************************************************
+     * PHASE III - The main loop: Now, we rely on the Inotify
+     */
 
 
     // Process any new file receives through INotify
     while (observer.running) {
 
         for (auto&& event : inotify.read()) {
-            std::cout << event << std::endl;
+            observer.stats.inotify.nbAllFiles++;
+
+            if ( boost::regex_match( event.name, fileFilter) ) {
+                observer.stats.inotify.nbJsnFiles++;
+
+                bu::FileInfo file = bu::temporary::parseFileName( event.name.c_str() );
+ 
+                observer.queue.push( std::move(file) );
+                observer.stats.nbJsnFilesQueued++;
+            }
         }
 
         std::cout << "DirectoryObserver: Alive" << std::endl;
+        std::cout << "DirectoryObserver statistics:" << std::endl;
+        std::cout << getStats(observer, "    ");        
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
 
@@ -211,7 +227,7 @@ namespace fu {
                 std::cout << "Requester: " << runNumber << ": " << file << std::endl;
             } else {
                 std::cout << "Requester: " << runNumber << ": EMPTY" << std::endl;
-                std::this_thread::sleep_for(std::chrono::milliseconds(700));
+                std::this_thread::sleep_for(std::chrono::milliseconds(5000));
             }          
         }
         std::cout << "Requester: Finished" << std::endl;
@@ -242,8 +258,9 @@ int main()
         requester.detach();
 
         std::this_thread::sleep_for(std::chrono::seconds(2));
-        fu::done = true;
         std::this_thread::sleep_for(std::chrono::seconds(200));
+                fu::done = true;
+
 
         //requester.join();
     }

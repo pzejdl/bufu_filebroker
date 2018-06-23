@@ -64,10 +64,25 @@ struct RunDirectoryObserver {
 
     //TODO
     struct Statistics {
+        struct Inotify {
+            uint32_t nbAllFiles = 0;                    // Number of all files INotify saw
+            uint32_t nbJsnFiles = 0;                    // Number of proper .jsn files (after applying a filter to all files)
+            uint32_t nbJsnFilesDuplicated = 0;          // Number of duplicated .jsn files received from Inotify
+        };
+
+        struct Startup {
+            uint32_t nbJsnFiles = 0;                    // Number of proper .jsn files seen in run directory when observer was started
+            Inotify inotify;                            // Inotify statistics during observer start
+        } startup;
+ 
+        Inotify inotify;                                // Inotify statistics during observer run
+
+        uint32_t nbJsnFilesQueued = 0;                  // Number of all .jsn files put into the queue
+
         std::atomic<std::uint32_t> indexSeenOnBU {0};
         std::atomic<std::uint32_t> indexGivenToFU {0};
-        // When lastEoLS == 0 then there was no jsn files found
-        std::atomic<std::uint32_t> lastEoLS {0};
+        std::atomic<std::uint32_t> lastEoLS {0};            // When lastEoLS == 0 then there was no jsn files found (yet)
+
         std::atomic<bool> isEoR {false};
     } stats;
 };
