@@ -79,11 +79,9 @@ struct RunDirectoryObserver {
 
         uint32_t nbJsnFilesQueued = 0;                  // Number of all .jsn files put into the queue
 
-        std::atomic<std::uint32_t> indexSeenOnBU {0};
-        std::atomic<std::uint32_t> indexGivenToFU {0};
-        std::atomic<std::uint32_t> lastEoLS {0};            // When lastEoLS == 0 then there was no jsn files found (yet)
-
-        std::atomic<bool> isEoR {false};
+        uint32_t lastEoLS = 0;                          // When lastEoLS == 0 then there was no jsn files found (yet)
+        uint32_t lastIndex = 0;
+        bool isEoR = false;
     } stats;
 };
 

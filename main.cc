@@ -48,25 +48,46 @@ std::string getStats(RunDirectoryObserver& observer, const std::string sep = "")
     os << sep << "inotify.nbJsnFiles="                      << stats.inotify.nbJsnFiles << std::endl;
     os << std::endl;
     os << sep << "nbJsnFilesQueued="                        << stats.nbJsnFilesQueued << std::endl;
+    os << std::endl;
+    os << sep << "lastEoLS="    << stats.lastEoLS << std::endl;
+    os << sep << "lastIndex="   << stats.lastIndex << std::endl;
 
     return os.str();
 }
 
 
+void pushFile(RunDirectoryObserver& observer, bu::FileInfo file)
+{
+    observer.queue.push( std::move(file) );
+    observer.stats.nbJsnFilesQueued++;
+}
 
-void optimizeAndPushFiles(RunDirectoryObserver& observer, bu::files_t& files) 
+void updateStats(RunDirectoryObserver& observer, const bu::FileInfo& file)
+{
+    // Sanity check. In principle always true.
+    assert( (uint32_t)observer.runNumber == file.runNumber );
+
+    if (file.isEoLS()) {
+        observer.stats.lastEoLS = file.lumiSection;
+    } else if (file.isEoR()) {
+        observer.stats.isEoR = true;
+    } else {
+        assert( file.type == bu::FileInfo::FileType::INDEX );
+        observer.stats.lastIndex = file.index;
+    }
+}
+
+void optimizeAndPushFiles(RunDirectoryObserver& observer, const bu::files_t& files) 
 {
     for (auto&& file : files) {
+        updateStats(observer, file);
 
-        // At the moment we add all files
+        // Skip EoLS and EoR, they are already flagged in runDirectoryObserver
+        if (file.type == bu::FileInfo::FileType::EOLS || file.type == bu::FileInfo::FileType::EOR) {
+            continue;
+        }
 
-        //bu::FileInfo file = bu::parseFileName( fileName.c_str() );
-
-        // Consistency check for the moment
-        //assert( fileName == (file.fileName() + ".jsn") );
-
-        observer.queue.push( std::move(file) );
-        observer.stats.nbJsnFilesQueued++;
+        pushFile( observer, std::move(file) );
     }
 }
 
@@ -105,14 +126,14 @@ void directoryObserverRunner_main(RunDirectoryObserver& observer)
     inotify.add_watch( runDirectoryPath, IN_CREATE );
     std::cout << "DirectoryObserver: INotify started." << std::endl;
 
-    sleep(5);
+    //sleep(5);
 
     // List files in the run directory
     bu::files_t files = bu::listFilesInRunDirectory( runDirectoryPath, fileFilter );
     observer.stats.startup.nbJsnFiles = files.size();
     std::cout << "DirectoryObserver: Found " << files.size() << " files in run directory." << std::endl;
 
-    sleep(5);
+    //sleep(5);
 
     // Now, we have to read the first batch events from INotify. 
     // And we have to make sure they are not thw same we obtained in listing the run directory before.
@@ -168,8 +189,7 @@ void directoryObserverRunner_main(RunDirectoryObserver& observer)
 
                 bu::FileInfo file = bu::temporary::parseFileName( event.name.c_str() );
  
-                observer.queue.push( std::move(file) );
-                observer.stats.nbJsnFilesQueued++;
+                pushFile( observer, std::move(file) );
             }
         }
 
@@ -248,8 +268,8 @@ namespace fu {
 
 int main()
 {
-    //int runNumber = 1000030354;
-    int runNumber = 615052;
+    int runNumber = 1000030354;
+    //int runNumber = 615052;
 
     std::cout << boost::format("HOHOHO: %u\n") % 123;
 
