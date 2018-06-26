@@ -1,0 +1,7 @@
+# Build instructions
+
+    cd build
+    cmake ..
+    make
+
+

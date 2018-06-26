@@ -9,6 +9,7 @@
 #include <thread>
 #include <atomic>
 #include <unordered_map>
+#include <ctime>
 
 #include "tools/inotify/INotify.h"
 #include "tools/exception.h"
@@ -18,6 +19,9 @@
 
 #include "bu.h"
 #include "RunDirectory.h"
+
+#include "http/server/server.hpp"
+
 
 namespace fs = boost::filesystem;
 
@@ -30,6 +34,7 @@ namespace fs = boost::filesystem;
 // Forward declaration
 void directoryObserverRunner(RunDirectoryObserver& observer);
 
+// Global initialization for simplicity, at the moment
 RunDirectoryManager runDirectoryManager { directoryObserverRunner };
 
 
@@ -236,6 +241,80 @@ bool getFileFromBU(int runNumber, bu::FileInfo& file)
 namespace fu {
     std::atomic<bool> done(false);
 
+    void addServerHandlers(http::server::server& s)
+    {
+        s.request_handler().add_handler("/index.html",
+        [](const http::server::request& req, http::server::reply& rep)
+        {
+            (void)req;
+            rep.content_type = "text/html";
+
+            std::time_t time = std::time(nullptr);
+
+            std::ostringstream os;
+            os
+            << "<html>\n"
+            << "<head><title>BUFU File Server</title></head>\n"
+            << "<body>\n"
+            << "<h1>BUFU File Server is alive!</h1>\n"
+            << "<p>Version not yet known :)</p>\n"
+            << "<p>" << std::asctime(std::localtime( &time )) << "</p>\n"
+            << "</body>\n"
+            << "</html>\n";
+
+            rep.content = os.str();
+        });
+
+        s.request_handler().add_handler("/test",
+        [](const http::server::request& req, http::server::reply& rep)
+        {
+            (void)req;
+            rep.content_type = "text/plain";
+            rep.content.append("Test: Hello, I'm alive!");
+        });
+
+        s.request_handler().add_handler("/stats",
+        [](const http::server::request& req, http::server::reply& rep)
+        {
+            (void)req;
+            rep.content_type = "text/plain";
+
+            int runNumber = 1000030354;
+            RunDirectoryObserver& observer = runDirectoryManager.getRunDirectoryObserver( runNumber );
+
+            std::string stats = getStats( observer, "  ");
+
+            rep.content.append( stats );
+        });        
+    }
+
+    void server()
+    {
+        THREAD_DEBUG();
+        try {
+            std::string address = "0.0.0.0";
+            std::string port = "8080";
+            std::string docRoot = "/fff/ramdisk"; 
+
+            // Initialise the server.
+            http::server::server s(address, port, docRoot);
+
+            // Add handlers
+            addServerHandlers(s);
+
+            std::cout << "Server: Starting HTTP server at " << address << ':' << port << docRoot << std::endl;
+
+            // Run the server until stopped.
+            s.run();
+
+            std::cout << "Server: HTTP Finished" << std::endl;
+        }
+        catch(const std::exception& e) {
+            BACKTRACE_AND_RETHROW( std::runtime_error, "Unhandled exception detected." );
+        }
+    }
+
+
     void requester_main(int runNumber)
     {
         THREAD_DEBUG();
@@ -274,12 +353,15 @@ int main()
     std::cout << boost::format("HOHOHO: %u\n") % 123;
 
     try {
-        std::thread requester( fu::requester, runNumber );
-        requester.detach();
+        std::thread server( fu::server );
+        server.detach();
+
+        //std::thread requester( fu::requester, runNumber );
+        //requester.detach();
 
         std::this_thread::sleep_for(std::chrono::seconds(2));
         std::this_thread::sleep_for(std::chrono::seconds(200));
-                fu::done = true;
+        fu::done = true;
 
 
         //requester.join();
@@ -291,6 +373,7 @@ int main()
         BACKTRACE_AND_RETHROW( std::runtime_error, "Unhandled exception detected." );
     }
 
+    std::cout << "main finished." << std::endl;
     return 0;
 }
 

@@ -12,21 +12,21 @@
 TARGET = main
 
 # source files
-SOURCES = main.cc bu.cc tools/inotify/INotify.cc
+SOURCES = main.cpp src/connection.cpp src/connection_manager.cpp src/mime_types.cpp src/reply.cpp src/request_handler.cpp src/request_parser.cpp src/server.cpp
 
 # work out names of object files from sources
-OBJECTS = $(SOURCES:.cc=.o)
+OBJECTS = $(SOURCES:.cpp=.o)
 
 # compiler flags (do not include -c here as it's dealt with by the
 # appropriate rules; CXXFLAGS gets passed as part of command
 # invocation for both compilation (where -c is needed) and linking
 # (where it's not.)
 #CXXFLAGS = -std=c++11 -Wall -Wextra -O2 -g 
-CXXFLAGS = -std=c++11 -Wall -Wextra -O0 -g -rdynamic -pthread
+CXXFLAGS = -std=c++11 -Wall -Wextra -rdynamic -O0 -g -pthread
 
-LDFLAGS = -lboost_system -lboost_filesystem -lboost_regex
+LDFLAGS = -L/opt/local/lib -lboost_system-mt
 
-CPPFLAGS = -I.
+CPPFLAGS = -I. -Isrc -I/opt/local/include
 
 
 # default target (to build all)
@@ -41,7 +41,7 @@ clean:
 # dependencies separated by spaces (duplicates removed),
 # here ${OBJECTS}
 ${TARGET}: ${OBJECTS}
-	${LINK.cc} -o $@ $^
+	${LINK.cpp} -o $@ $^
 
 # no rule is needed here for compilation as make already
 # knows how to do it
@@ -55,5 +55,10 @@ ${TARGET}: ${OBJECTS}
 
 #test2.o : product.h test2.h
 
-main.o: 	tools/synchronized/queue.h tools/inotify/INotify.h tools/tools.h RunDirectory.h bu/FileInfo.h tools/exception.h
-bu.o: 		bu.h bu/FileInfo.h tools/exception.h
+src/server.o:           src/server.hpp
+src/request_parser.o:   src/request_parser.hpp src/request.hpp
+src/request_handler.o:  src/request_handler.hpp src/request_handler.cpp
+src/reply.o:            src/reply.hpp
+src/mime_types.o:       src/mime_types.hpp
+src/connection_manager.o:       src/connection_manager.hpp
+src/connection.o:       src/connection.hpp src/connection_manager.hpp src/request_handler.hpp
