@@ -268,9 +268,13 @@ namespace fu {
         s.request_handler().add_handler("/test",
         [](const http::server::request& req, http::server::reply& rep)
         {
-            (void)req;
             rep.content_type = "text/plain";
-            rep.content.append("Test: Hello, I'm alive!");
+            rep.content.append("Test: Hello, I'm alive!\n\n");
+
+            rep.content.append("Parameters:\n");
+            for (const auto& pair: req.query_params) {
+                rep.content.append( pair.first + '=' + pair.second + '\n');
+            }
         });
 
         s.request_handler().add_handler("/stats",

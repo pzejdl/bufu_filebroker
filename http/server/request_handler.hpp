@@ -16,6 +16,9 @@
 #include <utility>      // std::pair
 #include <vector>
 
+ #include <boost/utility/string_ref.hpp> 
+
+
 namespace http {
 namespace server {
 
@@ -36,7 +39,7 @@ public:
   explicit request_handler(const std::string& doc_root);
 
   /// Handle a request and produce a reply.
-  void handle_request(const request& req, reply& rep);
+  void handle_request(request& req, reply& rep);
 
   // Register a handler for the specific path
   void add_handler(std::string&& path, RequestHandler_t&& handler)
@@ -50,9 +53,12 @@ private:
 
   std::vector< std::pair<std::string,RequestHandler_t> > handlers_;
 
+  // Splits URI into path and query
+  bool parse_uri(request& req);
+
   /// Perform URL-decoding on a string. Returns false if the encoding was
   /// invalid.
-  static bool url_decode(const std::string& in, std::string& out);
+  static bool url_decode(const boost::string_ref& in, std::string& out);
 };
 
 } // namespace server

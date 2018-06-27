@@ -16,6 +16,7 @@
 #include "reply.hpp"
 #include "request.hpp"
 
+#include <boost/utility/string_ref.hpp> 
 #include <iostream>
 
 
@@ -27,40 +28,101 @@ request_handler::request_handler(const std::string& doc_root)
 {
 }
 
-void request_handler::handle_request(const request& req, reply& rep)
+
+// TODO: move to request_parser
+bool request_handler::parse_uri(request& req)
 {
-  // Decode url to path.
-  std::string request_path;
-  if (!url_decode(req.uri, request_path))
-  {
-    rep = reply::stock_reply(reply::bad_request);
-    return;
+  boost::string_ref uri {req.uri};
+  boost::string_ref path {req.uri};
+  boost::string_ref query;
+
+  // Split uri into path and query
+  auto query_pos = uri.find_first_of('?');
+  if (query_pos != std::string::npos) {
+    path = uri.substr(0, query_pos);
+    query = uri.substr(query_pos+1);
+  } 
+
+  // Count how many key-value pairs we may have and reserve a storage for them
+  auto nb_keyvalues = std::count_if( query.cbegin(), query.cend(),[](char ch){return ch == '&' || ch == ';';} );
+  req.query_params.reserve(nb_keyvalues);
+
+  // Parse query attribute-value pairs
+  if ( !query.empty() ) {
+    do {
+      query_pos = query.find_first_of("&;");
+
+      auto keyvalue = query.substr(0, query_pos);
+      if ( !keyvalue.empty() ) {
+        // Split pair into key and value
+        auto sep = keyvalue.find_first_of('=');
+
+        std::string key;
+        std::string value; 
+
+        if ( 
+          !url_decode( keyvalue.substr(0, sep), key ) ||
+          !url_decode( (sep != std::string::npos ? keyvalue.substr(sep+1) : ""), value )
+        ) {
+          return false;
+        }
+
+        req.query_params.emplace_back( std::move(key), std::move(value) );
+      }
+
+      query.remove_prefix(query_pos+1);
+    } while ( query_pos != std::string::npos );
+  }
+
+  if (!url_decode(path, req.path)) {
+    return false;
   }
 
   // Request path must be absolute and not contain "..".
-  if (request_path.empty() || request_path[0] != '/'
-      || request_path.find("..") != std::string::npos)
+  if (req.path.empty() || req.path[0] != '/'
+      || req.path.find("..") != std::string::npos)
   {
+    return false;
+  }
+
+  return true;
+}
+
+void request_handler::handle_request(request& req, reply& rep)
+{
+  if ( !parse_uri(req) ) {
     rep = reply::stock_reply(reply::bad_request);
-    return;
+    return;   
   }
 
   // If path ends in slash (i.e. is a directory) then add "index.html".
-  if (request_path[request_path.size() - 1] == '/')
+  if (req.path[req.path.size() - 1] == '/')
   {
-    request_path += "index.html";
+    req.path += "index.html";
   }
 
 
-  std::cout << "HTTP DEBUG: " << req.method << " '" << req.uri << "' URL_DECODE: '" << request_path << "'" << std::endl;
-  // for (const auto& header: req.headers) {
-  //     std::cout << "  " << header.name << '=' << header.value << std::endl;
-  // }
+  // DEBUG
+  {
+    std::cout << "HTTP DEBUG: " << req.method << " '" << req.uri << "' URL_DECODE: '" << req.path << '\'';
+    std::cout << " PARAMS: [";
+    auto it = req.query_params.cbegin();
+    auto end = req.query_params.cend();
+    if (it != end) {
+      std::cout << '\'' << (*it).first << "'='" << (*it).second << '\'';
+      ++it;
+    }
+    while (it != end) {
+      std::cout << ", '" << (*it).first << "'='" << (*it).second << '\'';
+      ++it;
+    }
+    std::cout << ']' << std::endl;
+  }
 
 
   // Find if we have a specific handler for the path given
   auto iter = std::find_if(handlers_.cbegin(), handlers_.cend(),
-    [&request_path](const std::pair<std::string,RequestHandler_t>& handler) { return handler.first == request_path;}
+    [&req](const std::pair<std::string,RequestHandler_t>& handler) { return handler.first == req.path;}
     );
 
   if (iter == handlers_.end()) {
@@ -75,7 +137,7 @@ void request_handler::handle_request(const request& req, reply& rep)
   iter->second(req, rep);
 
   // At the moment headers should not be modified directly by handlers
-  assert( rep.headers.size() == 0 );
+  assert( rep.headers.empty() );
 
   // Prepare the headers
   rep.headers.resize(2);
@@ -115,7 +177,9 @@ void request_handler::handle_request(const request& req, reply& rep)
   // rep.headers[1].value = mime_types::extension_to_type(extension);
 }
 
-bool request_handler::url_decode(const std::string& in, std::string& out)
+
+// TODO: move to request_parser
+bool request_handler::url_decode(const boost::string_ref& in, std::string& out)
 {
   out.clear();
   out.reserve(in.size());
@@ -126,8 +190,14 @@ bool request_handler::url_decode(const std::string& in, std::string& out)
       if (i + 3 <= in.size())
       {
         int value = 0;
-        std::istringstream is(in.substr(i + 1, 2));
-        if (is >> std::hex >> value)
+        //std::istringstream is(in.substr(i + 1, 2));
+ 
+        char *input = const_cast<char *>(in.data()) + i + 1;
+        char *end;
+        value = std::strtol( input, &end, 16 );
+
+        //if (is >> std::hex >> value)
+        if (input != end)
         {
           out += static_cast<char>(value);
           i += 2;

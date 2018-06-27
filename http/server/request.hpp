@@ -18,6 +18,8 @@
 namespace http {
 namespace server {
 
+typedef std::vector< std::pair<std::string,std::string> > query_params_t;
+
 /// A request received from a client.
 struct request
 {
@@ -26,6 +28,8 @@ struct request
   int http_version_major;
   int http_version_minor;
   std::vector<header> headers;
+  std::string path;
+  query_params_t query_params;
 };
 
 } // namespace server
