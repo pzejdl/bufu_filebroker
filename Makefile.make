@@ -1,3 +1,9 @@
+# 
+# DON'T USE THIS Makefile, use cmake instead
+#
+# It is kept only as a historical reference
+#
+
 # example makefile
 #
 # Notes:

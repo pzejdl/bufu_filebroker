@@ -1,24 +1,23 @@
-#include <iostream>
+// #include <iostream>
 #include <system_error>
-//#include <regex>
-#include <boost/regex.hpp>
 
 #include <boost/format.hpp>
 #include <boost/filesystem.hpp>
 
-#include <thread>
-#include <atomic>
-#include <unordered_map>
-#include <ctime>
+// #include <thread>
+// #include <atomic>
+// #include <unordered_map>
+// #include <ctime>
+
+// #include "tools/exception.h"
+// #include "bu/FileInfo.h"
 
 #include "tools/inotify/INotify.h"
-#include "tools/exception.h"
 #include "tools/tools.h"
 
-#include "bu/FileInfo.h"
-
-#include "bu.h"
-#include "RunDirectory.h"
+#include "bu/bu.h"
+#include "bu/RunDirectoryObserver.h"
+#include "bu/RunDirectoryManager.h"
 
 #include "http/server/server.hpp"
 
@@ -32,16 +31,16 @@ namespace fs = boost::filesystem;
  */
 
 // Forward declaration
-void directoryObserverRunner(RunDirectoryObserver& observer);
+void directoryObserverRunner(bu::RunDirectoryObserver& observer);
 
 // Global initialization for simplicity, at the moment
-RunDirectoryManager runDirectoryManager { directoryObserverRunner };
+bu::RunDirectoryManager runDirectoryManager { directoryObserverRunner };
 
 
 
-std::string getStats(RunDirectoryObserver& observer, const std::string sep = "")
+std::string getStats(bu::RunDirectoryObserver& observer, const std::string sep = "")
 {
-    RunDirectoryObserver::Statistics& stats = observer.stats;
+    bu::RunDirectoryObserver::Statistics& stats = observer.stats;
     std::ostringstream os;
 
     os << sep << "startup.nbJsnFiles="                      << stats.startup.nbJsnFiles << std::endl;
@@ -61,13 +60,13 @@ std::string getStats(RunDirectoryObserver& observer, const std::string sep = "")
 }
 
 
-void pushFile(RunDirectoryObserver& observer, bu::FileInfo file)
+void pushFile(bu::RunDirectoryObserver& observer, bu::FileInfo file)
 {
     observer.queue.push( std::move(file) );
     observer.stats.nbJsnFilesQueued++;
 }
 
-void updateStats(RunDirectoryObserver& observer, const bu::FileInfo& file)
+void updateStats(bu::RunDirectoryObserver& observer, const bu::FileInfo& file)
 {
     // Sanity check. In principle always true.
     assert( (uint32_t)observer.runNumber == file.runNumber );
@@ -82,7 +81,7 @@ void updateStats(RunDirectoryObserver& observer, const bu::FileInfo& file)
     }
 }
 
-void optimizeAndPushFiles(RunDirectoryObserver& observer, const bu::files_t& files) 
+void optimizeAndPushFiles(bu::RunDirectoryObserver& observer, const bu::files_t& files) 
 {
     for (auto&& file : files) {
         updateStats(observer, file);
@@ -102,7 +101,7 @@ void optimizeAndPushFiles(RunDirectoryObserver& observer, const bu::files_t& fil
  * The main function responsible for finding files on BU.
  * Is run in a separate thread for each run directory that FU asks. 
  */
-void directoryObserverRunner_main(RunDirectoryObserver& observer)
+void directoryObserverRunner_main(bu::RunDirectoryObserver& observer)
 {
     THREAD_DEBUG();
 
@@ -176,7 +175,7 @@ void directoryObserverRunner_main(RunDirectoryObserver& observer)
     optimizeAndPushFiles(observer, files);
 
     // FUs can start reading from our queue NOW
-    observer.state = RunDirectoryObserver::State::READY;
+    observer.state = bu::RunDirectoryObserver::State::READY;
 
     /**************************************************************************
      * PHASE III - The main loop: Now, we rely on the Inotify
@@ -206,10 +205,10 @@ void directoryObserverRunner_main(RunDirectoryObserver& observer)
 
     // Hola, finito!
     std::cout << "DirectoryObserver: Finished" << std::endl;
-    observer.state = RunDirectoryObserver::State::STOP;
+    observer.state = bu::RunDirectoryObserver::State::STOP;
 }
 
-void directoryObserverRunner(RunDirectoryObserver& observer)
+void directoryObserverRunner(bu::RunDirectoryObserver& observer)
 {
     try {
         directoryObserverRunner_main(observer);
@@ -224,10 +223,10 @@ void directoryObserverRunner(RunDirectoryObserver& observer)
 //TODO: Split into two functions
 bool getFileFromBU(int runNumber, bu::FileInfo& file)
 {
-    RunDirectoryObserver& observer = runDirectoryManager.getRunDirectoryObserver( runNumber );
+    bu::RunDirectoryObserver& observer = runDirectoryManager.getRunDirectoryObserver( runNumber );
 
-    if (observer.state == RunDirectoryObserver::State::READY) {
-        FileQueue_t& queue = observer.queue;
+    if (observer.state == bu::RunDirectoryObserver::State::READY) {
+        bu::FileQueue_t& queue = observer.queue;
         return queue.pop(file);     
     }
 
@@ -284,7 +283,7 @@ namespace fu {
             rep.content_type = "text/plain";
 
             int runNumber = 1000030354;
-            RunDirectoryObserver& observer = runDirectoryManager.getRunDirectoryObserver( runNumber );
+            bu::RunDirectoryObserver& observer = runDirectoryManager.getRunDirectoryObserver( runNumber );
 
             std::string stats = getStats( observer, "  ");
 

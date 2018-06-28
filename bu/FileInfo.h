@@ -2,6 +2,8 @@
 #include <sstream>
 #include <cstring>
 #include <iomanip>
+#include <cassert>
+#include <stdexcept>
 
 #include "tools/exception.h"
 
