@@ -13,6 +13,7 @@
 
 #include <string>
 #include <vector>
+#include <algorithm>
 #include "header.hpp"
 
 namespace http {
@@ -23,6 +24,22 @@ typedef std::vector< std::pair<std::string,std::string> > query_params_t;
 /// A request received from a client.
 struct request
 {
+
+  // TODO: should be named differently and put inside query_params...
+  bool getParam(const std::string& key, std::string& value) const {
+
+    // Find if we have a specific handler for the path given
+    auto iter = std::find_if(query_params.cbegin(), query_params.cend(),
+      [&key](const std::pair<std::string,std::string>& keyvalue) { return keyvalue.first == key;}
+      );
+
+    if (iter != query_params.cend()) {
+      value = iter->second;
+      return true;
+    } 
+    return false;
+  }
+
   std::string method;
   std::string uri;
   int http_version_major;

@@ -25,7 +25,7 @@ set(HTTP_SOURCES http/server/connection.cpp http/server/connection_manager.cpp h
 
 
 # Defines the executable
-add_executable(main main.cc bu/bu.cc tools/inotify/INotify.cc ${HTTP_SOURCES})
+add_executable(main main.cc bu/RunDirectoryObserver.cc bu/RunDirectoryManager.cc bu/bu.cc tools/inotify/INotify.cc ${HTTP_SOURCES})
 
 # Specifies include paths
 target_include_directories(main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${Boost_INCLUDE_DIRS})

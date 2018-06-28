@@ -38,28 +38,6 @@ bu::RunDirectoryManager runDirectoryManager { directoryObserverRunner };
 
 
 
-std::string getStats(bu::RunDirectoryObserver& observer, const std::string sep = "")
-{
-    bu::RunDirectoryObserver::Statistics& stats = observer.stats;
-    std::ostringstream os;
-
-    os << sep << "startup.nbJsnFiles="                      << stats.startup.nbJsnFiles << std::endl;
-    os << sep << "startup.inotify.nbAllFiles="              << stats.startup.inotify.nbAllFiles << std::endl;
-    os << sep << "startup.inotify.nbJsnFiles="              << stats.startup.inotify.nbJsnFiles << std::endl;
-    os << sep << "startup.inotify.nbJsnFilesDuplicated="    << stats.startup.inotify.nbJsnFilesDuplicated << std::endl;
-    os << std::endl;
-    os << sep << "inotify.nbAllFiles="                      << stats.inotify.nbAllFiles << std::endl;
-    os << sep << "inotify.nbJsnFiles="                      << stats.inotify.nbJsnFiles << std::endl;
-    os << std::endl;
-    os << sep << "nbJsnFilesQueued="                        << stats.nbJsnFilesQueued << std::endl;
-    os << std::endl;
-    os << sep << "lastEoLS="    << stats.lastEoLS << std::endl;
-    os << sep << "lastIndex="   << stats.lastIndex << std::endl;
-
-    return os.str();
-}
-
-
 void pushFile(bu::RunDirectoryObserver& observer, bu::FileInfo file)
 {
     observer.queue.push( std::move(file) );
@@ -153,7 +131,7 @@ void directoryObserverRunner_main(bu::RunDirectoryObserver& observer)
                 bu::FileInfo file = bu::temporary::parseFileName( event.name.c_str() );
 
                 // Add files that are not duplicates
-                if ( std::find(files.begin(), files.end(), file) == files.end() ) {
+                if ( std::find(files.cbegin(), files.cend(), file) == files.cend() ) {
                     files.push_back( std::move( file ));
                 } else {
                     observer.stats.startup.inotify.nbJsnFilesDuplicated++;
@@ -163,7 +141,7 @@ void directoryObserverRunner_main(bu::RunDirectoryObserver& observer)
     }
 
     std::cout << "DirectoryObserver statistics:" << std::endl;
-    std::cout << getStats(observer, "    ");
+    std::cout << observer.getStats();
 
     // Sort the files according LS and INDEX numbers
     std::sort(files.begin(), files.end());
@@ -199,7 +177,7 @@ void directoryObserverRunner_main(bu::RunDirectoryObserver& observer)
 
         std::cout << "DirectoryObserver: Alive" << std::endl;
         std::cout << "DirectoryObserver statistics:" << std::endl;
-        std::cout << getStats(observer, "    ");        
+        std::cout << observer.getStats();        
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
 
@@ -233,7 +211,6 @@ bool getFileFromBU(int runNumber, bu::FileInfo& file)
     std::cout << "Requester: RunDirectoryObserver " << runNumber << " is not READY, it is " << observer.state << std::endl;
     return false;
 }
-
 
 
 
@@ -279,15 +256,31 @@ namespace fu {
         s.request_handler().add_handler("/stats",
         [](const http::server::request& req, http::server::reply& rep)
         {
-            (void)req;
             rep.content_type = "text/plain";
 
-            int runNumber = 1000030354;
-            bu::RunDirectoryObserver& observer = runDirectoryManager.getRunDirectoryObserver( runNumber );
+            std::string val;
+            if (req.getParam("runnumber", val)) {
+                int runNumber;
+                try {
+                    runNumber = std::stoul(val);
+                }
+                catch(const std::exception& e) {
+                    rep.content.append( "ERROR: Cannot parse query parameter: '" + val + '\'' );
+                    return;
+                }    
+                // Return statistics for one run
+                rep.content.append( runDirectoryManager.getStats(runNumber) );
 
-            std::string stats = getStats( observer, "  ");
+            } else {
+                // Return statistics for all runs
+                rep.content.append( runDirectoryManager.getStats() );
+            }
 
-            rep.content.append( stats );
+            // int runNumber = 1000030354;
+            // bu::RunDirectoryObserver& observer = runDirectoryManager.getRunDirectoryObserver( runNumber );
+
+            // std::string stats = getStats( observer );
+
         });        
     }
 

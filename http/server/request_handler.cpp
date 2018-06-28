@@ -125,7 +125,7 @@ void request_handler::handle_request(request& req, reply& rep)
     [&req](const std::pair<std::string,RequestHandler_t>& handler) { return handler.first == req.path;}
     );
 
-  if (iter == handlers_.end()) {
+  if (iter == handlers_.cend()) {
     rep = reply::stock_reply(reply::not_found);
     return;
   } 

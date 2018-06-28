@@ -35,7 +35,7 @@ int tools::INotify::add_watch(const std::string& pathname, uint32_t mask)
 {
     int wd;
     if ( (wd = inotify_add_watch(fd_, pathname.c_str(), mask)) < 0 ) {
-        throw std::system_error(errno, std::system_category(), "inotify_add_watch");
+        throw std::system_error(errno, std::system_category(), "inotify_add_watch for path '" + pathname + '\'');
     }
     return wd;
 }
