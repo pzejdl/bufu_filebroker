@@ -51,6 +51,7 @@ void updateStats(bu::RunDirectoryObserver& observer, const bu::FileInfo& file)
 
     if (file.isEoLS()) {
         observer.stats.lastEoLS = file.lumiSection;
+        observer.stats.lastIndex = -1;
     } else if (file.isEoR()) {
         observer.stats.isEoR = true;
     } else {
@@ -258,7 +259,27 @@ namespace fu {
         });
 
 
-        s.request_handler().add_handler("/getfile",
+        s.request_handler().add_handler("/restart",
+        [](const http::server::request& req, http::server::reply& rep)
+        {
+            rep.content_type = "text/plain";
+
+            int runNumber;
+            try {
+                runNumber = getParamUL(req, "runnumber");
+            }
+            catch (std::logic_error& e) {
+                rep.content.append(e.what());
+                rep.status = http::server::reply::bad_request;
+                return;
+            }
+        
+            runDirectoryManager.restartRunDirectoryObserver( runNumber );
+            rep.content.append( runDirectoryManager.getStats(runNumber) );
+        });
+
+
+        s.request_handler().add_handler("/popfile",
         [](const http::server::request& req, http::server::reply& rep)
         {
             rep.content_type = "text/plain";
@@ -286,7 +307,7 @@ namespace fu {
                 bu::FileInfo file;
                 bu::FileQueue_t& queue = observer.queue;
                 if (queue.pop(file)) {     
-                    os << "file=" << file.fileName() << std::endl;
+                    os << "file=\"" << file.fileName()<< '\"' << std::endl;
                     assert( (uint32_t)runNumber == file.runNumber);
                     os << "lumisection=" << file.lumiSection << std::endl;
                     os << "index=" << file.index << std::endl;
@@ -403,7 +424,7 @@ int main()
         //requester.detach();
 
         std::this_thread::sleep_for(std::chrono::seconds(2));
-        std::this_thread::sleep_for(std::chrono::seconds(200));
+        std::this_thread::sleep_for(std::chrono::seconds(600));
         fu::done = true;
 
 

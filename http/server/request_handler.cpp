@@ -117,6 +117,11 @@ void request_handler::handle_request(request& req, reply& rep)
       ++it;
     }
     std::cout << ']' << std::endl;
+
+    // std::cout << "HEADERS:" << std::endl;
+    // for (const auto& header: req.headers) {
+    //   std::cout << "  " << header.name << '=' << header.value << std::endl;
+    // }
   }
 
 

@@ -16,6 +16,9 @@ public:
 
     /*synchronized*/ RunDirectoryObserver& getRunDirectoryObserver(int runNumber);
 
+    // FIXME: This will create a resource leak
+    /*synchronized*/ void restartRunDirectoryObserver(int runNumber);
+
     /*synchronized*/ const std::string getStats();
     /*synchronized*/ const std::string getStats(int runNumber);
 

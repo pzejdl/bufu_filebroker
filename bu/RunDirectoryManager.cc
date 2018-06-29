@@ -26,6 +26,11 @@ RunDirectoryManager::RunDirectoryManager(RunDirectoryRunner_t runner) : runner_(
     return createRunDirectoryObserver( runNumber );
 }
 
+/*synchronized*/ void RunDirectoryManager::restartRunDirectoryObserver(int runNumber)
+{
+     createRunDirectoryObserver( runNumber );
+}
+
 
 /*synchronized*/ const std::string RunDirectoryManager::getStats()
 {
@@ -57,10 +62,17 @@ void RunDirectoryManager::startRunner(RunDirectoryObserver& observer)
 }
 
 
+// FIXME
 RunDirectoryObserver& RunDirectoryManager::createRunDirectoryObserver(int runNumber)
 {
     std::unique_lock<tools::synchronized::spinlock> lock(runDirectoryObserversLock_);
     //{
+
+        // FIXME: Just to allow restart, we remove any existing runObserver from the map. Obviously, this is creating a memory leak!!!
+        if (runDirectoryObservers_.erase( runNumber ) > 0) {
+            std::cout << "DEBUG: runDirectoryObserver erased for runNumber: " << runNumber << std::endl;
+        }
+
         // Constructs a new runDirectoryObserver in the map directly
         auto emplaceResult = runDirectoryObservers_.emplace(std::piecewise_construct,
             std::forward_as_tuple(runNumber), 

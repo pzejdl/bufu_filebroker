@@ -67,7 +67,7 @@ struct RunDirectoryObserver {
         uint32_t nbJsnFilesQueued = 0;                  // Number of all .jsn files put into the queue
 
         uint32_t lastEoLS = 0;                          // When lastEoLS == 0 then there was no jsn files found (yet)
-        uint32_t lastIndex = 0;
+        int lastIndex = -1;
         bool isEoR = false;
     } stats;
 };
