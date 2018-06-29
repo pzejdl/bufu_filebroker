@@ -213,6 +213,23 @@ bool getFileFromBU(int runNumber, bu::FileInfo& file)
 }
 
 
+unsigned long getParamUL(const http::server::request& req, const std::string& key)
+{
+    std::string strValue;
+    unsigned long value;
+    if (req.getParam(key, strValue)) {
+        try {
+            value = std::stoul(strValue);
+        }
+        catch(const std::exception& e) {
+            throw std::invalid_argument("ERROR: Cannot parse query parameter: '" + key + '=' + strValue + '\'');  
+        } 
+    } else {
+        throw std::out_of_range("ERROR: Parameter '" + key + "' was not found in the query.");
+    }    
+    return value;
+}
+
 
 namespace fu {
     std::atomic<bool> done(false);
@@ -228,59 +245,89 @@ namespace fu {
             std::time_t time = std::time(nullptr);
 
             std::ostringstream os;
-            os
-            << "<html>\n"
-            << "<head><title>BUFU File Server</title></head>\n"
-            << "<body>\n"
-            << "<h1>BUFU File Server is alive!</h1>\n"
-            << "<p>Version not yet known :)</p>\n"
-            << "<p>" << std::asctime(std::localtime( &time )) << "</p>\n"
-            << "</body>\n"
-            << "</html>\n";
+            os  << "<html>\n"
+                << "<head><title>BUFU File Server</title></head>\n"
+                << "<body>\n"
+                << "<h1>BUFU File Server is alive!</h1>\n"
+                << "<p>Version not yet known :)</p>\n"
+                << "<p>" << std::asctime(std::localtime( &time )) << "</p>\n"
+                << "</body>\n"
+                << "</html>\n";
 
             rep.content = os.str();
         });
 
-        s.request_handler().add_handler("/test",
+
+        s.request_handler().add_handler("/getfile",
         [](const http::server::request& req, http::server::reply& rep)
         {
             rep.content_type = "text/plain";
-            rep.content.append("Test: Hello, I'm alive!\n\n");
 
-            rep.content.append("Parameters:\n");
-            for (const auto& pair: req.query_params) {
-                rep.content.append( pair.first + '=' + pair.second + '\n');
+            int runNumber;
+            try {
+                runNumber = getParamUL(req, "runnumber");
             }
+            catch (std::logic_error& e) {
+                rep.content.append(e.what());
+                rep.status = http::server::reply::bad_request;
+                return;
+            }
+
+            //Get file
+            std::ostringstream os;
+        
+            bu::RunDirectoryObserver& observer = runDirectoryManager.getRunDirectoryObserver( runNumber );
+            bu::RunDirectoryObserver::State state { observer.state };
+
+            os << "runnumber=" << runNumber << std::endl;
+            os << "state=" << state << std::endl;
+
+            if (state == bu::RunDirectoryObserver::State::READY) {
+                bu::FileInfo file;
+                bu::FileQueue_t& queue = observer.queue;
+                if (queue.pop(file)) {     
+                    os << "file=" << file.fileName() << std::endl;
+                    assert( (uint32_t)runNumber == file.runNumber);
+                    os << "lumisection=" << file.lumiSection << std::endl;
+                    os << "index=" << file.index << std::endl;
+                } else {
+                    os << "lastindex=" << observer.stats.lastIndex << std::endl;
+                    os << "lasteols=" << observer.stats.lastEoLS << std::endl;
+                    os << "iseor=" << observer.stats.isEoR << std::endl;
+                }
+            }
+
+            rep.content.append( os.str() );
         });
+
 
         s.request_handler().add_handler("/stats",
         [](const http::server::request& req, http::server::reply& rep)
         {
             rep.content_type = "text/plain";
 
-            std::string val;
-            if (req.getParam("runnumber", val)) {
-                int runNumber;
+            int runNumber = -1;
+            {
+                std::string strValue;
                 try {
-                    runNumber = std::stoul(val);
+                    if (req.getParam("runnumber", strValue)) {
+                        runNumber = std::stoul(strValue);
+                    }
                 }
                 catch(const std::exception& e) {
-                    rep.content.append( "ERROR: Cannot parse query parameter: '" + val + '\'' );
+                    rep.content.append( "ERROR: Cannot parse query parameter: '" + strValue + '\'' );
+                    rep.status = http::server::reply::bad_request;
                     return;
-                }    
+                }
+            }
+
+            if (runNumber >= 0) {    
                 // Return statistics for one run
                 rep.content.append( runDirectoryManager.getStats(runNumber) );
-
             } else {
                 // Return statistics for all runs
                 rep.content.append( runDirectoryManager.getStats() );
             }
-
-            // int runNumber = 1000030354;
-            // bu::RunDirectoryObserver& observer = runDirectoryManager.getRunDirectoryObserver( runNumber );
-
-            // std::string stats = getStats( observer );
-
         });        
     }
 
@@ -343,7 +390,7 @@ namespace fu {
 
 int main()
 {
-    int runNumber = 1000030354;
+    //int runNumber = 1000030354;
     //int runNumber = 615052;
 
     std::cout << boost::format("HOHOHO: %u\n") % 123;
