@@ -14,7 +14,7 @@ std::string RunDirectoryObserver::getStats() const
     std::ostringstream os;
 
     os << "runNumber=" << runNumber << std::endl;
-    os << sep << "state=" << state << std::endl;
+    os << sep << "state=" << runDirectory.state << std::endl;
     os << std::endl;
     os << sep << "startup.nbJsnFiles="                      << stats.startup.nbJsnFiles << std::endl;
     os << sep << "startup.inotify.nbAllFiles="              << stats.startup.inotify.nbAllFiles << std::endl;
@@ -26,8 +26,8 @@ std::string RunDirectoryObserver::getStats() const
     os << std::endl;
     os << sep << "nbJsnFilesQueued="                        << stats.nbJsnFilesQueued << std::endl;
     os << std::endl;
-    os << sep << "lastEoLS="    << stats.lastEoLS << std::endl;
-    os << sep << "lastIndex="   << stats.lastIndex << std::endl;
+    os << sep << "lastEoLS="                                << runDirectory.lastEoLS << std::endl;
+    os << sep << "lastIndex="                               << runDirectory.lastIndex << std::endl;
 
     return os.str();
 }
@@ -36,10 +36,15 @@ std::ostream& operator<< (std::ostream& os, RunDirectoryObserver::State state)
 {
     switch (state)
     {
-        case RunDirectoryObserver::State::INIT:       return os << "INIT" ;
-        case RunDirectoryObserver::State::STARTING:   return os << "STARTING";
-        case RunDirectoryObserver::State::READY:      return os << "READY";
-        case RunDirectoryObserver::State::STOP:       return os << "STOP";
+        case RunDirectoryObserver::State::INIT:     return os << "INIT" ;
+        case RunDirectoryObserver::State::STARTING: return os << "STARTING";
+        case RunDirectoryObserver::State::READY:    return os << "READY";
+/*
+        case RunDirectoryObserver::State::EOLS:     return os << "EOLS";
+        case RunDirectoryObserver::State::EOR:      return os << "EOR";
+*/
+        case RunDirectoryObserver::State::STOP:     return os << "STOP";
+        case RunDirectoryObserver::State::ERROR:    return os << "ERROR";
         // Omit default case to trigger compiler warning for missing cases
     };
     return os;

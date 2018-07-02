@@ -8,12 +8,82 @@
 
 namespace bu {
 
+/**************************************************************************
+ * PUBLIC
+ */
+
+
 RunDirectoryManager::RunDirectoryManager(RunDirectoryRunner_t runner) : runner_(runner) {}
 
-/*synchronized*/ RunDirectoryObserver& RunDirectoryManager::getRunDirectoryObserver(int runNumber)
+
+std::tuple< FileInfo, RunDirectoryManager::RunDirectoryStatus > RunDirectoryManager::popRunFile(int runNumber)
+{
+    FileInfo file;
+    RunDirectoryStatus run;
+
+    // TODO: It will be update outside only during first initial phase!
+    // TODO: Make state changes when file is processed here...!!! 
+
+    // TODO: Make a part of RunDirectoryObserver
+    RunDirectoryObserver& observer = getRunDirectoryObserver( runNumber );
+    {    
+        std::lock_guard<std::mutex> lock(observer.runDirectoryObserverLock);
+
+        run.state = observer.runDirectory.state;
+        run.lastEoLS = observer.runDirectory.lastEoLS;
+        run.lastIndex = observer.runDirectory.lastIndex;
+        run.isEoR = observer.runDirectory.isEoR;
+
+        if (run.state == bu::RunDirectoryObserver::State::READY) {
+            if (!observer.queue.empty()) {
+                file = std::move( observer.queue.front() );
+                observer.queue.pop();
+            }
+            //observer.queue.pop(file);
+        }
+    }
+
+    return std::tie( file, run );
+}
+
+
+const std::string RunDirectoryManager::getStats() 
+{
+    std::ostringstream os;
+    os << "runNumbers=" << runDirectoryObservers_.size() << std::endl;
+    {
+        std::lock_guard<std::mutex> lock(runDirectoryManagerLock_);
+        for (const auto& pair : runDirectoryObservers_) {
+            const bu::RunDirectoryObserver& observer = pair.second;
+            os << observer.getStats();
+        }
+    }
+    return os.str();
+}
+
+
+const std::string RunDirectoryManager::getStats(int runNumber) 
+{
+    bu::RunDirectoryObserver& observer = getRunDirectoryObserver( runNumber );
+    return observer.getStats();
+}
+
+
+void RunDirectoryManager::restartRunDirectoryObserver(int runNumber) 
+{
+     createRunDirectoryObserver( runNumber );
+}
+
+
+/**************************************************************************
+ * PRIVATE
+ */
+
+
+RunDirectoryObserver& RunDirectoryManager::getRunDirectoryObserver(int runNumber) 
 {
     {
-        std::lock_guard<tools::synchronized::spinlock> lock(runDirectoryObserversLock_);
+        std::lock_guard<std::mutex> lock(runDirectoryManagerLock_);
 
         // Check if we already have observer for that run
         const auto iter = runDirectoryObservers_.find( runNumber );
@@ -26,46 +96,20 @@ RunDirectoryManager::RunDirectoryManager(RunDirectoryRunner_t runner) : runner_(
     return createRunDirectoryObserver( runNumber );
 }
 
-/*synchronized*/ void RunDirectoryManager::restartRunDirectoryObserver(int runNumber)
+
+void RunDirectoryManager::startRunner(RunDirectoryObserver& observer) const
 {
-     createRunDirectoryObserver( runNumber );
-}
-
-
-/*synchronized*/ const std::string RunDirectoryManager::getStats()
-{
-    std::ostringstream os;
-    os << "runNumbers=" << runDirectoryObservers_.size() << std::endl;
-    {
-        std::lock_guard<tools::synchronized::spinlock> lock(runDirectoryObserversLock_);
-        for (const auto& pair : runDirectoryObservers_) {
-            const bu::RunDirectoryObserver& observer = pair.second;
-            os << observer.getStats();
-        }
-    }
-    return os.str();
-}
-
-/*synchronized*/ const std::string RunDirectoryManager::getStats(int runNumber)
-{
-    bu::RunDirectoryObserver& observer = getRunDirectoryObserver( runNumber );
-    return observer.getStats();
-}
-
-
-void RunDirectoryManager::startRunner(RunDirectoryObserver& observer) 
-{
-    assert( observer.state == RunDirectoryObserver::State::INIT );
+    assert( observer.runDirectory.state == RunDirectoryObserver::State::INIT );
     observer.runner = std::thread(runner_, std::ref(observer));
     observer.runner.detach();
-    observer.state = RunDirectoryObserver::State::STARTING;
+    observer.runDirectory.state = RunDirectoryObserver::State::STARTING;
 }
 
 
 // FIXME
 RunDirectoryObserver& RunDirectoryManager::createRunDirectoryObserver(int runNumber)
 {
-    std::unique_lock<tools::synchronized::spinlock> lock(runDirectoryObserversLock_);
+    std::unique_lock<std::mutex> lock(runDirectoryManagerLock_);
     //{
 
         // FIXME: Just to allow restart, we remove any existing runObserver from the map. Obviously, this is creating a memory leak!!!

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <thread>
+#include <queue>
 
 #include "tools/synchronized/queue.h"
 #include "bu/FileInfo.h"
@@ -27,13 +28,14 @@ namespace bu {
 
 // Changed from std::string to bu::FileInfo
 //typedef tools::synchronized::queue<std::string> FileNameQueue_t;
-typedef tools::synchronized::queue<bu::FileInfo> FileQueue_t;
+//typedef tools::synchronized::queue<bu::FileInfo> FileQueue_t;
+typedef std::queue<bu::FileInfo> FileQueue_t;
 
 
 struct RunDirectoryObserver {
     // Note that this class cannot be copied or moved because of queue
 
-    enum class State { INIT, STARTING, READY, STOP };
+    enum class State { INIT, STARTING, READY, /*EOLS, EOR,*/ STOP, ERROR };
 
     friend std::ostream& operator<< (std::ostream& os, const RunDirectoryObserver::State state);
 
@@ -45,9 +47,16 @@ struct RunDirectoryObserver {
     int runNumber;
     FileQueue_t queue;
 
-    std::atomic<State> state { State::INIT };
+    //std::atomic<State> state { State::INIT };
     std::atomic<bool> running { true };
     std::thread runner;
+
+    struct RunDirectory {
+        std::atomic<State> state { State::INIT };
+        int lastEoLS = -1;
+        int lastIndex = -1;
+        bool isEoR = false;
+    } runDirectory;
 
     //TODO
     struct Statistics {
@@ -66,10 +75,9 @@ struct RunDirectoryObserver {
 
         uint32_t nbJsnFilesQueued = 0;                  // Number of all .jsn files put into the queue
 
-        uint32_t lastEoLS = 0;                          // When lastEoLS == 0 then there was no jsn files found (yet)
-        int lastIndex = -1;
-        bool isEoR = false;
     } stats;
+
+    std::mutex runDirectoryObserverLock;                // Synchronize updates
 };
 
 } // namespace bu

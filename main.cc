@@ -30,16 +30,24 @@ namespace fs = boost::filesystem;
  *   When necessary, I use std:::string.
  */
 
+
 // Forward declaration
 void directoryObserverRunner(bu::RunDirectoryObserver& observer);
+
+/**************************************************************************
+ * Global variables
+ */
+
 
 // Global initialization for simplicity, at the moment
 bu::RunDirectoryManager runDirectoryManager { directoryObserverRunner };
 
+/*****************************************************************************/
 
 
 void pushFile(bu::RunDirectoryObserver& observer, bu::FileInfo file)
 {
+    std::lock_guard<std::mutex> lock(observer.runDirectoryObserverLock);
     observer.queue.push( std::move(file) );
     observer.stats.nbJsnFilesQueued++;
 }
@@ -50,13 +58,15 @@ void updateStats(bu::RunDirectoryObserver& observer, const bu::FileInfo& file)
     assert( (uint32_t)observer.runNumber == file.runNumber );
 
     if (file.isEoLS()) {
-        observer.stats.lastEoLS = file.lumiSection;
-        observer.stats.lastIndex = -1;
+        observer.runDirectory.lastEoLS = file.lumiSection;
+        observer.runDirectory.lastIndex = -1;
     } else if (file.isEoR()) {
-        observer.stats.isEoR = true;
+        observer.runDirectory.isEoR = true;
+        //TODO: FIXME: Is not updated
+        //observer.runDirectory.state = bu::RunDirectoryObserver::State::EOR;
     } else {
         assert( file.type == bu::FileInfo::FileType::INDEX );
-        observer.stats.lastIndex = file.index;
+        observer.runDirectory.lastIndex = file.index;
     }
 }
 
@@ -106,7 +116,15 @@ void directoryObserverRunner_main(bu::RunDirectoryObserver& observer)
 
     // INotify has to be set before we list the directory content, otherwise we have a race condition...
     tools::INotify inotify;
-    inotify.add_watch( runDirectoryPath, IN_CREATE );
+    try {
+        inotify.add_watch( runDirectoryPath, IN_CREATE );
+    }
+    //TODO: Move to the end of this function and make a more general case
+    catch(const std::system_error& e) {
+        observer.runDirectory.state = bu::RunDirectoryObserver::State::ERROR;
+        std::cout << "DirectoryObserver: Finished" << std::endl;
+        return;
+    }
     std::cout << "DirectoryObserver: INotify started." << std::endl;
 
     //sleep(5);
@@ -154,7 +172,7 @@ void directoryObserverRunner_main(bu::RunDirectoryObserver& observer)
     optimizeAndPushFiles(observer, files);
 
     // FUs can start reading from our queue NOW
-    observer.state = bu::RunDirectoryObserver::State::READY;
+    observer.runDirectory.state = bu::RunDirectoryObserver::State::READY;
 
     /**************************************************************************
      * PHASE III - The main loop: Now, we rely on the Inotify
@@ -184,7 +202,7 @@ void directoryObserverRunner_main(bu::RunDirectoryObserver& observer)
 
     // Hola, finito!
     std::cout << "DirectoryObserver: Finished" << std::endl;
-    observer.state = bu::RunDirectoryObserver::State::STOP;
+    observer.runDirectory.state = bu::RunDirectoryObserver::State::STOP;
 }
 
 void directoryObserverRunner(bu::RunDirectoryObserver& observer)
@@ -195,22 +213,6 @@ void directoryObserverRunner(bu::RunDirectoryObserver& observer)
     catch(const std::exception& e) {
         BACKTRACE_AND_RETHROW( std::runtime_error, "Unhandled exception detected." );
     } 
-}
-
-
-
-//TODO: Split into two functions
-bool getFileFromBU(int runNumber, bu::FileInfo& file)
-{
-    bu::RunDirectoryObserver& observer = runDirectoryManager.getRunDirectoryObserver( runNumber );
-
-    if (observer.state == bu::RunDirectoryObserver::State::READY) {
-        bu::FileQueue_t& queue = observer.queue;
-        return queue.pop(file);     
-    }
-
-    std::cout << "Requester: RunDirectoryObserver " << runNumber << " is not READY, it is " << observer.state << std::endl;
-    return false;
 }
 
 
@@ -296,27 +298,26 @@ namespace fu {
 
             //Get file
             std::ostringstream os;
-        
-            bu::RunDirectoryObserver& observer = runDirectoryManager.getRunDirectoryObserver( runNumber );
-            bu::RunDirectoryObserver::State state { observer.state };
+
+            bu::FileInfo file;
+            bu::RunDirectoryManager::RunDirectoryStatus run;        
+
+            std::tie( file, run ) = runDirectoryManager.popRunFile( runNumber );
 
             os << "runnumber=" << runNumber << std::endl;
-            os << "state=" << state << std::endl;
+            os << "state=" << run.state << std::endl;
 
-            if (state == bu::RunDirectoryObserver::State::READY) {
-                bu::FileInfo file;
-                bu::FileQueue_t& queue = observer.queue;
-                if (queue.pop(file)) {     
-                    os << "file=\"" << file.fileName()<< '\"' << std::endl;
-                    assert( (uint32_t)runNumber == file.runNumber);
-                    os << "lumisection=" << file.lumiSection << std::endl;
-                    os << "index=" << file.index << std::endl;
-                } else {
-                    os << "lastindex=" << observer.stats.lastIndex << std::endl;
-                    os << "lasteols=" << observer.stats.lastEoLS << std::endl;
-                    os << "iseor=" << observer.stats.isEoR << std::endl;
-                }
-            }
+            if (file.type != bu::FileInfo::FileType::EMPTY) { 
+                assert( (uint32_t)runNumber == file.runNumber);
+
+                os << "file=\"" << file.fileName()<< '\"' << std::endl;
+                os << "lumisection=" << file.lumiSection << std::endl;
+                os << "index=" << file.index << std::endl;
+            } /*else {*/
+                os << "lastindex=" << run.lastIndex << std::endl;
+                os << "lasteols=" << run.lastEoLS << std::endl;
+                os << "iseor=" << run.isEoR << std::endl;
+            //}
 
             rep.content.append( os.str() );
         });
@@ -384,14 +385,14 @@ namespace fu {
         THREAD_DEBUG();
 
         while (!done) {
-            bu::FileInfo file;
+            //bu::FileInfo file;
 
-            if ( getFileFromBU(runNumber, file) ) {
-                std::cout << "Requester: " << runNumber << ": " << file << std::endl;
-            } else {
-                std::cout << "Requester: " << runNumber << ": EMPTY" << std::endl;
-                std::this_thread::sleep_for(std::chrono::milliseconds(5000));
-            }          
+            // if ( getFileFromBU(runNumber, file) ) {
+            //     std::cout << "Requester: " << runNumber << ": " << file << std::endl;
+            // } else {
+            //     std::cout << "Requester: " << runNumber << ": EMPTY" << std::endl;
+            //     std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+            // }          
         }
         std::cout << "Requester: Finished" << std::endl;
     }
