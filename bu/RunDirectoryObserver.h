@@ -2,9 +2,12 @@
 
 #include <thread>
 #include <queue>
+#include <atomic>
+#include <mutex>
 
-#include "tools/synchronized/queue.h"
+//#include "tools/synchronized/queue.h"
 #include "bu/FileInfo.h"
+#include "bu.h"
 
 
 namespace bu {
@@ -36,12 +39,23 @@ struct RunDirectoryObserver {
     // Note that this class cannot be copied or moved because of queue
 
     enum class State { INIT, STARTING, READY, /*EOLS, EOR,*/ STOP, ERROR };
-
     friend std::ostream& operator<< (std::ostream& os, const RunDirectoryObserver::State state);
 
     RunDirectoryObserver(int runNumber);
 
+    // RunDirectoryObserver(const RunDirectoryObserver&) = delete;
+    // RunDirectoryObserver& operator=(const RunDirectoryObserver&) = delete;
+    
+
     std::string getStats() const;
+
+    void run();
+
+    void main();
+
+    void pushFile(bu::FileInfo file);
+    void updateStats(const bu::FileInfo& file);
+    void optimizeAndPushFiles(const files_t& files);
 
 
     int runNumber;
@@ -79,5 +93,7 @@ struct RunDirectoryObserver {
 
     std::mutex runDirectoryObserverLock;                // Synchronize updates
 };
+
+typedef std::shared_ptr<RunDirectoryObserver> RunDirectoryObserverPtr;
 
 } // namespace bu

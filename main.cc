@@ -21,7 +21,6 @@
 
 #include "http/server/server.hpp"
 
-
 namespace fs = boost::filesystem;
 
 /*
@@ -31,66 +30,65 @@ namespace fs = boost::filesystem;
  */
 
 
-// Forward declaration
-void directoryObserverRunner(bu::RunDirectoryObserver& observer);
-
 /**************************************************************************
  * Global variables
  */
 
 
 // Global initialization for simplicity, at the moment
-bu::RunDirectoryManager runDirectoryManager { directoryObserverRunner };
+bu::RunDirectoryManager runDirectoryManager;
 
 /*****************************************************************************/
 
+namespace bu {
 
-void pushFile(bu::RunDirectoryObserver& observer, bu::FileInfo file)
+void RunDirectoryObserver::pushFile(bu::FileInfo file)
 {
-    std::lock_guard<std::mutex> lock(observer.runDirectoryObserverLock);
-    observer.queue.push( std::move(file) );
-    observer.stats.nbJsnFilesQueued++;
+    std::lock_guard<std::mutex> lock(runDirectoryObserverLock);
+    queue.push( std::move(file) );
+    stats.nbJsnFilesQueued++;
 }
 
-void updateStats(bu::RunDirectoryObserver& observer, const bu::FileInfo& file)
+
+void RunDirectoryObserver::updateStats(const bu::FileInfo& file)
 {
     // Sanity check. In principle always true.
-    assert( (uint32_t)observer.runNumber == file.runNumber );
+    assert( (uint32_t)runNumber == file.runNumber );
 
     if (file.isEoLS()) {
-        observer.runDirectory.lastEoLS = file.lumiSection;
-        observer.runDirectory.lastIndex = -1;
+        runDirectory.lastEoLS = file.lumiSection;
+        runDirectory.lastIndex = -1;
     } else if (file.isEoR()) {
-        observer.runDirectory.isEoR = true;
+        runDirectory.isEoR = true;
         //TODO: FIXME: Is not updated
         //observer.runDirectory.state = bu::RunDirectoryObserver::State::EOR;
     } else {
         assert( file.type == bu::FileInfo::FileType::INDEX );
-        observer.runDirectory.lastIndex = file.index;
+        runDirectory.lastIndex = file.index;
     }
 }
 
-void optimizeAndPushFiles(bu::RunDirectoryObserver& observer, const bu::files_t& files) 
+
+void RunDirectoryObserver::optimizeAndPushFiles(const bu::files_t& files) 
 {
     for (auto&& file : files) {
-        updateStats(observer, file);
+        updateStats(file);
 
         // Skip EoLS and EoR, they are already flagged in runDirectoryObserver
         if (file.type == bu::FileInfo::FileType::EOLS || file.type == bu::FileInfo::FileType::EOR) {
             continue;
         }
 
-        pushFile( observer, std::move(file) );
+        pushFile( std::move(file) );
     }
 }
-
 
 
 /*
  * The main function responsible for finding files on BU.
  * Is run in a separate thread for each run directory that FU asks. 
  */
-void directoryObserverRunner_main(bu::RunDirectoryObserver& observer)
+void RunDirectoryObserver::main()
 {
     THREAD_DEBUG();
 
@@ -107,7 +105,7 @@ void directoryObserverRunner_main(bu::RunDirectoryObserver& observer)
     //const std::regex fileFilter( "run[0-9]+_ls[0-9]+_.*\\.jsn" );
 
 
-    const std::string runDirectoryPath = bu::getRunDirectory( observer.runNumber ).string(); 
+    const std::string runDirectoryPath = bu::getRunDirectory( runNumber ).string(); 
     std::cout << "DirectoryObserver: Watching: " << runDirectoryPath << std::endl;
 
     /**************************************************************************
@@ -121,7 +119,7 @@ void directoryObserverRunner_main(bu::RunDirectoryObserver& observer)
     }
     //TODO: Move to the end of this function and make a more general case
     catch(const std::system_error& e) {
-        observer.runDirectory.state = bu::RunDirectoryObserver::State::ERROR;
+        runDirectory.state = bu::RunDirectoryObserver::State::ERROR;
         std::cout << "DirectoryObserver: Finished" << std::endl;
         return;
     }
@@ -131,7 +129,7 @@ void directoryObserverRunner_main(bu::RunDirectoryObserver& observer)
 
     // List files in the run directory
     bu::files_t files = bu::listFilesInRunDirectory( runDirectoryPath, fileFilter );
-    observer.stats.startup.nbJsnFiles = files.size();
+    stats.startup.nbJsnFiles = files.size();
     std::cout << "DirectoryObserver: Found " << files.size() << " files in run directory." << std::endl;
 
     //sleep(5);
@@ -142,10 +140,10 @@ void directoryObserverRunner_main(bu::RunDirectoryObserver& observer)
         std::cout << "DirectoryObserver: INotify has something." << std::endl;
         
         for (auto&& event : inotify.read()) {
-            observer.stats.startup.inotify.nbAllFiles++;
+            stats.startup.inotify.nbAllFiles++;
 
             if ( boost::regex_match( event.name, fileFilter) ) {
-                observer.stats.startup.inotify.nbJsnFiles++;
+                stats.startup.inotify.nbJsnFiles++;
 
                 bu::FileInfo file = bu::temporary::parseFileName( event.name.c_str() );
 
@@ -153,14 +151,14 @@ void directoryObserverRunner_main(bu::RunDirectoryObserver& observer)
                 if ( std::find(files.cbegin(), files.cend(), file) == files.cend() ) {
                     files.push_back( std::move( file ));
                 } else {
-                    observer.stats.startup.inotify.nbJsnFilesDuplicated++;
+                    stats.startup.inotify.nbJsnFilesDuplicated++;
                 }
             }
         }
     }
 
     std::cout << "DirectoryObserver statistics:" << std::endl;
-    std::cout << observer.getStats();
+    std::cout << getStats();
 
     // Sort the files according LS and INDEX numbers
     std::sort(files.begin(), files.end());
@@ -169,10 +167,10 @@ void directoryObserverRunner_main(bu::RunDirectoryObserver& observer)
      * PHASE II - Optimize: Determine the first usable .jsn file (and skip empty lumisections)
      */
 
-    optimizeAndPushFiles(observer, files);
+    optimizeAndPushFiles(files);
 
     // FUs can start reading from our queue NOW
-    observer.runDirectory.state = bu::RunDirectoryObserver::State::READY;
+    runDirectory.state = bu::RunDirectoryObserver::State::READY;
 
     /**************************************************************************
      * PHASE III - The main loop: Now, we rely on the Inotify
@@ -180,40 +178,43 @@ void directoryObserverRunner_main(bu::RunDirectoryObserver& observer)
 
 
     // Process any new file receives through INotify
-    while (observer.running) {
+    while (running) {
 
         for (auto&& event : inotify.read()) {
-            observer.stats.inotify.nbAllFiles++;
+            stats.inotify.nbAllFiles++;
 
             if ( boost::regex_match( event.name, fileFilter) ) {
-                observer.stats.inotify.nbJsnFiles++;
+                stats.inotify.nbJsnFiles++;
 
                 bu::FileInfo file = bu::temporary::parseFileName( event.name.c_str() );
  
-                pushFile( observer, std::move(file) );
+                pushFile( std::move(file) );
             }
         }
 
         std::cout << "DirectoryObserver: Alive" << std::endl;
         std::cout << "DirectoryObserver statistics:" << std::endl;
-        std::cout << observer.getStats();        
+        std::cout << getStats();        
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
 
     // Hola, finito!
     std::cout << "DirectoryObserver: Finished" << std::endl;
-    observer.runDirectory.state = bu::RunDirectoryObserver::State::STOP;
+    runDirectory.state = bu::RunDirectoryObserver::State::STOP;
 }
 
-void directoryObserverRunner(bu::RunDirectoryObserver& observer)
+
+void RunDirectoryObserver::run()
 {
     try {
-        directoryObserverRunner_main(observer);
+        main();
     }
     catch(const std::exception& e) {
         BACKTRACE_AND_RETHROW( std::runtime_error, "Unhandled exception detected." );
     } 
 }
+
+} // namespace bu
 
 
 unsigned long getParamUL(const http::server::request& req, const std::string& key)

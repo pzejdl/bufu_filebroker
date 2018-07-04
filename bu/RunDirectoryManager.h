@@ -1,13 +1,12 @@
 #pragma once
 
 #include <unordered_map>
+//#include <forward_list>
 
 #include "bu/RunDirectoryObserver.h"
 
 
 namespace bu {
-
-typedef std::function<void(RunDirectoryObserver&)> RunDirectoryRunner_t;
 
 class RunDirectoryManager {
 public:
@@ -30,7 +29,7 @@ public:
     // Will return FileInfo and RunDirectoryInfo 
 
 public:
-    RunDirectoryManager(RunDirectoryRunner_t runner);
+    RunDirectoryManager();
 
     //TODO: Candidate for structured binding with std::optional in C++17
     std::tuple< FileInfo, RunDirectoryStatus > popRunFile(int runNumber);
@@ -45,14 +44,15 @@ public:
     void restartRunDirectoryObserver(int runNumber);
 
 private:
-    RunDirectoryObserver& getRunDirectoryObserver(int runNumber);
-    RunDirectoryObserver& createRunDirectoryObserver(int runNumber);
-    void startRunner(RunDirectoryObserver& observer) const;
+    RunDirectoryObserverPtr getRunDirectoryObserver(int runNumber);
+    RunDirectoryObserverPtr createRunDirectoryObserver(int runNumber);
+    void startRunner(const RunDirectoryObserverPtr& observer) const;
 
 private:
-    RunDirectoryRunner_t runner_;
+    std::unordered_map< int, RunDirectoryObserverPtr > runDirectoryObservers_;
 
-    std::unordered_map< int, RunDirectoryObserver > runDirectoryObservers_;
+    //TODO: faster would be to use forward_list, but check if we can add new elements (with locking) and do iteration without locking...
+    //std::forward_list< std::pair< int, RunDirectoryObserverPtr > > runDirectoryObservers_;
 
     // Would be better to use shared_mutex, but for the moment there is only one reader, so the spinlock is the best
     std::mutex runDirectoryManagerLock_;    
