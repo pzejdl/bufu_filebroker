@@ -42,6 +42,8 @@ struct RunDirectoryObserver {
     friend std::ostream& operator<< (std::ostream& os, const RunDirectoryObserver::State state);
 
     RunDirectoryObserver(int runNumber);
+    ~RunDirectoryObserver();
+
 
     // RunDirectoryObserver(const RunDirectoryObserver&) = delete;
     // RunDirectoryObserver& operator=(const RunDirectoryObserver&) = delete;

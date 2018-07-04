@@ -135,7 +135,7 @@ void RunDirectoryObserver::main()
     //sleep(5);
 
     // Now, we have to read the first batch events from INotify. 
-    // And we have to make sure they are not thw same we obtained in listing the run directory before.
+    // And we have to make sure they are not the same we obtained in listing the run directory before.
     if ( inotify.hasEvent() ) {
         std::cout << "DirectoryObserver: INotify has something." << std::endl;
         

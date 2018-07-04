@@ -100,11 +100,13 @@ RunDirectoryObserverPtr RunDirectoryManager::getRunDirectoryObserver(int runNumb
     return createRunDirectoryObserver( runNumber );
 }
 
+
 // TODO: Move to RunDirectoryObserver
 void RunDirectoryManager::startRunner(const RunDirectoryObserverPtr& observer) const
 {
     assert( observer->runDirectory.state == RunDirectoryObserver::State::INIT );
-    observer->runner = std::thread(&RunDirectoryObserver::runner, observer);
+
+    observer->runner = std::thread(&RunDirectoryObserver::run, observer);
     observer->runner.detach();
     observer->runDirectory.state = RunDirectoryObserver::State::STARTING;
 }
@@ -116,9 +118,9 @@ RunDirectoryObserverPtr RunDirectoryManager::createRunDirectoryObserver(int runN
     std::unique_lock<std::mutex> lock(runDirectoryManagerLock_);
 
         // FIXME: Just to allow restart, we remove any existing runObserver from the map. Obviously, this is creating a memory leak!!!
-        // if (runDirectoryObservers_.erase( runNumber ) > 0) {
-        //     std::cout << "DEBUG: runDirectoryObserver erased for runNumber: " << runNumber << std::endl;
-        // }
+        if (runDirectoryObservers_.erase( runNumber ) > 0) {
+            std::cout << "DEBUG: runDirectoryObserver erased for runNumber: " << runNumber << std::endl;
+        }
 
         // Constructs a new runDirectoryObserver directly in the map directly
         auto emplaceResult = runDirectoryObservers_.emplace( runNumber, std::make_shared<RunDirectoryObserver>(runNumber) );

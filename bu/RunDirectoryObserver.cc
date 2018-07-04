@@ -8,6 +8,12 @@ namespace bu {
 
 RunDirectoryObserver::RunDirectoryObserver(int runNumber) : runNumber(runNumber) {}
 
+RunDirectoryObserver::~RunDirectoryObserver()
+{
+    std::cout << "DEBUG: RunDirectoryObserver::~RunDirectoryObserver()." << std::endl;
+}
+
+
 std::string RunDirectoryObserver::getStats() const
 {
     const char *sep = "  ";
