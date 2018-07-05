@@ -26,21 +26,26 @@ std::tuple< FileInfo, RunDirectoryManager::RunDirectoryStatus > RunDirectoryMana
 
     // TODO: Make a part of RunDirectoryObserver
     RunDirectoryObserverPtr observer = getRunDirectoryObserver( runNumber );
+
     {    
         std::lock_guard<std::mutex> lock(observer->runDirectoryObserverLock);
 
+        while (!observer->queue.empty()) {
+            file = std::move( observer->queue.front() );
+            observer->updateStats( file );
+            observer->queue.pop();
+
+            // Skip EoLS and EoR
+            if (file.type == FileInfo::FileType::EOLS || file.type == FileInfo::FileType::EOR) {
+                file.type = FileInfo::FileType::EMPTY;
+                observer->stats.nbJsnFilesOptimized++; 
+                continue;
+            }
+            break;
+        }
+
         run.state = observer->runDirectory.state;
         run.lastEoLS = observer->runDirectory.lastEoLS;
-        run.lastIndex = observer->runDirectory.lastIndex;
-        run.isEoR = observer->runDirectory.isEoR;
-
-        if (run.state == RunDirectoryObserver::State::READY) {
-            if (!observer->queue.empty()) {
-                file = std::move( observer->queue.front() );
-                observer->queue.pop();
-            }
-            //observer.queue.pop(file);
-        }
     }
 
     return std::tie( file, run );
@@ -70,6 +75,12 @@ const std::string RunDirectoryManager::getStats(int runNumber)
 {
     RunDirectoryObserverPtr observer = getRunDirectoryObserver( runNumber );
     return observer->getStats();
+}
+
+
+const std::string& RunDirectoryManager::getError(int runNumber) {
+    RunDirectoryObserverPtr observer = getRunDirectoryObserver( runNumber );
+    return observer->getError();
 }
 
 

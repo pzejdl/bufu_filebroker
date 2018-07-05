@@ -14,8 +14,6 @@ public:
     struct RunDirectoryStatus {
         RunDirectoryObserver::State state;
         int lastEoLS;
-        int lastIndex;
-        bool isEoR;
     };
 
     // struct RunFileInfo {
@@ -39,6 +37,9 @@ public:
 
     // Get statistics for a particular run
     const std::string getStats(int runNumber);
+
+    // Return the error message for a particular run
+    const std::string& getError(int runNumber);
 
     // FIXME: This will create a resource leak
     void restartRunDirectoryObserver(int runNumber);

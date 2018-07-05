@@ -3,6 +3,7 @@
 cmake_minimum_required(VERSION 2.8)
 
 project(bufu_fileserver)
+set (BUFU_FILESERVER_VERSION "\"0.1\"")
 
 # C++ compiler flags
 set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wextra -rdynamic -O0 -g")
@@ -19,13 +20,20 @@ find_package(Boost 1.53 REQUIRED COMPONENTS system filesystem regex)
 # Using pthread
 find_package(Threads REQUIRED)
 
+# configure a header file to pass some of the CMake settings to the source code
+configure_file (
+  "${PROJECT_SOURCE_DIR}/config.h.in"
+  "${PROJECT_BINARY_DIR}/config.h"
+)
 
 # TODO: Make a separate Makefile for http server
 set(HTTP_SOURCES http/server/connection.cpp http/server/connection_manager.cpp http/server/mime_types.cpp http/server/reply.cpp http/server/request_handler.cpp http/server/request_parser.cpp http/server/server.cpp)
 
-
 # Defines the executable
 add_executable(main main.cc bu/RunDirectoryObserver.cc bu/RunDirectoryManager.cc bu/bu.cc tools/inotify/INotify.cc ${HTTP_SOURCES})
+
+# Add the binary tree to the search path for include files so the config.h can be found
+target_include_directories(main PRIVATE "${PROJECT_BINARY_DIR}")
 
 # Specifies include paths
 target_include_directories(main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${Boost_INCLUDE_DIRS})

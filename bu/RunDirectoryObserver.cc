@@ -21,22 +21,36 @@ std::string RunDirectoryObserver::getStats() const
 
     os << "runNumber=" << runNumber << std::endl;
     os << sep << "state=" << runDirectory.state << std::endl;
-    os << std::endl;
+    os << '\n';
     os << sep << "startup.nbJsnFiles="                      << stats.startup.nbJsnFiles << std::endl;
+    os << sep << "startup.nbJsnFilesOptimized="             << stats.startup.nbJsnFilesOptimized << '\n';
     os << sep << "startup.inotify.nbAllFiles="              << stats.startup.inotify.nbAllFiles << std::endl;
     os << sep << "startup.inotify.nbJsnFiles="              << stats.startup.inotify.nbJsnFiles << std::endl;
     os << sep << "startup.inotify.nbJsnFilesDuplicated="    << stats.startup.inotify.nbJsnFilesDuplicated << std::endl;
-    os << std::endl;
+    os << '\n';
     os << sep << "inotify.nbAllFiles="                      << stats.inotify.nbAllFiles << std::endl;
     os << sep << "inotify.nbJsnFiles="                      << stats.inotify.nbJsnFiles << std::endl;
-    os << std::endl;
-    os << sep << "nbJsnFilesQueued="                        << stats.nbJsnFilesQueued << std::endl;
-    os << std::endl;
-    os << sep << "lastEoLS="                                << runDirectory.lastEoLS << std::endl;
-    os << sep << "lastIndex="                               << runDirectory.lastIndex << std::endl;
+    os << '\n';
+    os << sep << "nbJsnFilesProcessed="                     << stats.nbJsnFilesProcessed << std::endl;
+    os << sep << "nbJsnFilesOptimized="                     << stats.nbJsnFilesOptimized << '\n';
+    os << '\n';
+    os << sep << "queueSizeMax="                            << stats.queueSizeMax << '\n';
+    // TODO: NOTE: queue.size() is not protected by lock or memory barrier, therefore we will get a number that is not up-to-date, but it doesn't matter
+    //             In principle, we should protect all statistics variables here...
+    os << sep << "queueSize="                               << queue.size() << '\n';
+    os << '\n';
+    os << sep << "lastEoLS="                                << runDirectory.lastEoLS << '\n';
 
     return os.str();
 }
+
+
+const std::string& RunDirectoryObserver::getError() const
+{
+    return errorMessage;
+}
+
+
 
 std::ostream& operator<< (std::ostream& os, RunDirectoryObserver::State state)
 {
@@ -45,10 +59,8 @@ std::ostream& operator<< (std::ostream& os, RunDirectoryObserver::State state)
         case RunDirectoryObserver::State::INIT:     return os << "INIT" ;
         case RunDirectoryObserver::State::STARTING: return os << "STARTING";
         case RunDirectoryObserver::State::READY:    return os << "READY";
-/*
         case RunDirectoryObserver::State::EOLS:     return os << "EOLS";
         case RunDirectoryObserver::State::EOR:      return os << "EOR";
-*/
         case RunDirectoryObserver::State::STOP:     return os << "STOP";
         case RunDirectoryObserver::State::ERROR:    return os << "ERROR";
         // Omit default case to trigger compiler warning for missing cases

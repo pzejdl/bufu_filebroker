@@ -21,6 +21,8 @@
 
 #include "http/server/server.hpp"
 
+#include "config.h"
+
 namespace fs = boost::filesystem;
 
 /*
@@ -46,38 +48,47 @@ void RunDirectoryObserver::pushFile(bu::FileInfo file)
 {
     std::lock_guard<std::mutex> lock(runDirectoryObserverLock);
     queue.push( std::move(file) );
-    stats.nbJsnFilesQueued++;
+    stats.nbJsnFilesProcessed++;
+    uint32_t size = queue.size();
+    if (size > stats.queueSizeMax) {
+        stats.queueSizeMax = size;
+    }
 }
 
 
 void RunDirectoryObserver::updateStats(const bu::FileInfo& file)
 {
-    // Sanity check. In principle always true.
+    // Sanity check. In principle always OK.
     assert( (uint32_t)runNumber == file.runNumber );
+    assert( file.type != FileInfo::FileType::EMPTY );
 
     if (file.isEoLS()) {
         runDirectory.lastEoLS = file.lumiSection;
-        runDirectory.lastIndex = -1;
+        runDirectory.state = State::EOLS;
     } else if (file.isEoR()) {
-        runDirectory.isEoR = true;
-        //TODO: FIXME: Is not updated
-        //observer.runDirectory.state = bu::RunDirectoryObserver::State::EOR;
+        runDirectory.state = bu::RunDirectoryObserver::State::EOR;
     } else {
         assert( file.type == bu::FileInfo::FileType::INDEX );
-        runDirectory.lastIndex = file.index;
+        runDirectory.state = bu::RunDirectoryObserver::State::READY;
     }
 }
 
 
 void RunDirectoryObserver::optimizeAndPushFiles(const bu::files_t& files) 
 {
-    for (auto&& file : files) {
-        updateStats(file);
+    bool sawIndexFile = false;
 
-        // Skip EoLS and EoR, they are already flagged in runDirectoryObserver
-        if (file.type == bu::FileInfo::FileType::EOLS || file.type == bu::FileInfo::FileType::EOR) {
+    for (auto&& file : files) {
+
+        // Skip EoLS and EoR, but only if we didn't see any index file yet
+        if (!sawIndexFile && (file.type == bu::FileInfo::FileType::EOLS || file.type == bu::FileInfo::FileType::EOR)) {
+            // We can update statistics only for files that we skip here
+            // Later, the statistics is updated when FU asks for a file 
+            stats.startup.nbJsnFilesOptimized++; 
+            updateStats(file);
             continue;
         }
+        sawIndexFile = true;
 
         pushFile( std::move(file) );
     }
@@ -120,6 +131,8 @@ void RunDirectoryObserver::main()
     //TODO: Move to the end of this function and make a more general case
     catch(const std::system_error& e) {
         runDirectory.state = bu::RunDirectoryObserver::State::ERROR;
+        errorMessage = e.what();
+        std::cout << "DirectoryObserver: ERROR: " << errorMessage << std::endl;
         std::cout << "DirectoryObserver: Finished" << std::endl;
         return;
     }
@@ -169,6 +182,8 @@ void RunDirectoryObserver::main()
 
     optimizeAndPushFiles(files);
 
+    // TODO: Prevent double updates on statistics!!!
+    // TODO: Check if FUs can start reading earlier...
     // FUs can start reading from our queue NOW
     runDirectory.state = bu::RunDirectoryObserver::State::READY;
 
@@ -184,10 +199,8 @@ void RunDirectoryObserver::main()
             stats.inotify.nbAllFiles++;
 
             if ( boost::regex_match( event.name, fileFilter) ) {
-                stats.inotify.nbJsnFiles++;
-
                 bu::FileInfo file = bu::temporary::parseFileName( event.name.c_str() );
- 
+                stats.inotify.nbJsnFiles++;
                 pushFile( std::move(file) );
             }
         }
@@ -253,7 +266,7 @@ namespace fu {
                 << "<head><title>BUFU File Server</title></head>\n"
                 << "<body>\n"
                 << "<h1>BUFU File Server is alive!</h1>\n"
-                << "<p>Version not yet known :)</p>\n"
+                << "<p>v" BUFU_FILESERVER_VERSION "</p>\n"
                 << "<p>" << std::asctime(std::localtime( &time )) << "</p>\n"
                 << "</body>\n"
                 << "</html>\n";
@@ -266,6 +279,7 @@ namespace fu {
         [](const http::server::request& req, http::server::reply& rep)
         {
             rep.content_type = "text/plain";
+            rep.content.append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
 
             int runNumber;
             try {
@@ -286,6 +300,7 @@ namespace fu {
         [](const http::server::request& req, http::server::reply& rep)
         {
             rep.content_type = "text/plain";
+            rep.content.append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
 
             int runNumber;
             try {
@@ -305,20 +320,23 @@ namespace fu {
 
             std::tie( file, run ) = runDirectoryManager.popRunFile( runNumber );
 
-            os << "runnumber=" << runNumber << std::endl;
-            os << "state=" << run.state << std::endl;
+            os << "runnumber=" << runNumber << '\n';
+            os << "state=" << run.state << '\n';
+
+            if (run.state == bu::RunDirectoryObserver::State::ERROR) {
+                os << "errormessage=\"" << runDirectoryManager.getError( runNumber ) << "\"\n";
+            }
 
             if (file.type != bu::FileInfo::FileType::EMPTY) { 
                 assert( (uint32_t)runNumber == file.runNumber);
 
-                os << "file=\"" << file.fileName()<< '\"' << std::endl;
-                os << "lumisection=" << file.lumiSection << std::endl;
-                os << "index=" << file.index << std::endl;
-            } /*else {*/
-                os << "lastindex=" << run.lastIndex << std::endl;
-                os << "lasteols=" << run.lastEoLS << std::endl;
-                os << "iseor=" << run.isEoR << std::endl;
-            //}
+                os << "file=\"" << file.fileName()<< "\"\n";
+                os << "lumisection=" << file.lumiSection << '\n';
+                os << "index=" << file.index << '\n';
+            } else { 
+                os << "lumisection=" << run.lastEoLS << '\n';
+            }
+            os << "lasteols=" << run.lastEoLS << '\n';
 
             rep.content.append( os.str() );
         });
@@ -328,6 +346,7 @@ namespace fu {
         [](const http::server::request& req, http::server::reply& rep)
         {
             rep.content_type = "text/plain";
+            rep.content.append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
 
             int runNumber = -1;
             {
@@ -416,19 +435,22 @@ int main()
     //int runNumber = 1000030354;
     //int runNumber = 615052;
 
-    std::cout << boost::format("HOHOHO: %u\n") % 123;
+    //std::cout << boost::format("HOHOHO: %u\n") % 123;
+
+    std::cout << "BUFU-FIleServer v" << BUFU_FILESERVER_VERSION << std::endl;
 
     try {
         std::thread server( fu::server );
-        server.detach();
+        //server.detach();
 
         //std::thread requester( fu::requester, runNumber );
         //requester.detach();
 
-        std::this_thread::sleep_for(std::chrono::seconds(2));
-        std::this_thread::sleep_for(std::chrono::seconds(600));
+        //std::this_thread::sleep_for(std::chrono::seconds(2));
+        //std::this_thread::sleep_for(std::chrono::seconds(600));
         fu::done = true;
 
+        server.join();
 
         //requester.join();
     }

@@ -1,0 +1,2 @@
+// Get the version from CMake
+#define BUFU_FILESERVER_VERSION @BUFU_FILESERVER_VERSION@

@@ -38,8 +38,9 @@ typedef std::queue<bu::FileInfo> FileQueue_t;
 struct RunDirectoryObserver {
     // Note that this class cannot be copied or moved because of queue
 
-    enum class State { INIT, STARTING, READY, /*EOLS, EOR,*/ STOP, ERROR };
+    enum class State { INIT, STARTING, READY, EOLS, EOR, STOP, ERROR };
     friend std::ostream& operator<< (std::ostream& os, const RunDirectoryObserver::State state);
+
 
     RunDirectoryObserver(int runNumber);
     ~RunDirectoryObserver();
@@ -50,6 +51,8 @@ struct RunDirectoryObserver {
     
 
     std::string getStats() const;
+
+    const std::string& getError() const;
 
     void run();
 
@@ -63,6 +66,9 @@ struct RunDirectoryObserver {
     int runNumber;
     FileQueue_t queue;
 
+    // This error message is valid only if state is ERROR
+    std::string errorMessage;
+
     //std::atomic<State> state { State::INIT };
     std::atomic<bool> running { true };
     std::thread runner;
@@ -70,8 +76,6 @@ struct RunDirectoryObserver {
     struct RunDirectory {
         std::atomic<State> state { State::INIT };
         int lastEoLS = -1;
-        int lastIndex = -1;
-        bool isEoR = false;
     } runDirectory;
 
     //TODO
@@ -84,13 +88,16 @@ struct RunDirectoryObserver {
 
         struct Startup {
             uint32_t nbJsnFiles = 0;                    // Number of proper .jsn files seen in run directory when observer was started
+            uint32_t nbJsnFilesOptimized = 0;           // Number of .jsn files skipped during optimizations
             Inotify inotify;                            // Inotify statistics during observer start
         } startup;
 
         Inotify inotify;                                // Inotify statistics during observer run
 
-        uint32_t nbJsnFilesQueued = 0;                  // Number of all .jsn files put into the queue
+        uint32_t nbJsnFilesProcessed = 0;               // Number of all .jsn files put into the queue
+        uint32_t nbJsnFilesOptimized = 0;
 
+        uint32_t queueSizeMax = 0;                      // The largest queue size ever seen
     } stats;
 
     std::mutex runDirectoryObserverLock;                // Synchronize updates
