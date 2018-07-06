@@ -250,6 +250,9 @@ unsigned long getParamUL(const http::server::request& req, const std::string& ke
 }
 
 
+#include <boost/chrono/io/time_point_io.hpp>
+#include <boost/chrono/chrono.hpp>
+
 namespace fu {
     std::atomic<bool> done(false);
 
@@ -339,6 +342,23 @@ namespace fu {
                 os << "lumisection=" << run.lastEoLS << '\n';
             }
             os << "lasteols=" << run.lastEoLS << '\n';
+
+
+            // TODO: DEBUG Make this optional
+            if (false) { 
+                // TODO: Move timestamts to tools
+                std::cout << boost::chrono::time_fmt(boost::chrono::timezone::local) << boost::chrono::system_clock::now() << ' ';
+                //std::cout << boost::chrono::system_clock::now() << '\n';
+
+                std::cout << "DEBUG POPFILE: " << run.state << ' ';
+                if (file.type != bu::FileInfo::FileType::EMPTY) { 
+                    std::cout << '\"' << file.fileName() << "\" ";
+                    std::cout << "lumisection=" << file.lumiSection << ' ';
+                } else {
+                    std::cout << "lumisection=" << run.lastEoLS << ' ';
+                }
+                std::cout << "lasteols=" << run.lastEoLS << std::endl;
+            }
 
             rep.content.append( os.str() );
         });
