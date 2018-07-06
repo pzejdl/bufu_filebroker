@@ -23,8 +23,9 @@
 namespace http {
 namespace server {
 
-request_handler::request_handler(const std::string& doc_root)
-  : doc_root_(doc_root)
+request_handler::request_handler(const std::string& doc_root, bool debug_http_requests)
+  : doc_root_(doc_root),
+    debug_http_requests_(debug_http_requests)
 {
 }
 
@@ -103,7 +104,7 @@ void request_handler::handle_request(request& req, reply& rep)
 
 
   // DEBUG
-  {
+  if (debug_http_requests_) {
     std::cout << "HTTP DEBUG: " << req.method << " '" << req.uri << "' URL_DECODE: '" << req.path << '\'';
     std::cout << " PARAMS: [";
     auto it = req.query_params.cbegin();

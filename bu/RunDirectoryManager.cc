@@ -34,6 +34,8 @@ std::tuple< FileInfo, RunDirectoryManager::RunDirectoryStatus > RunDirectoryMana
             file = std::move( observer->queue.front() );
             observer->updateStats( file );
             observer->queue.pop();
+            //TODO: Move to updateStats but mark that was FU
+            observer->stats.fuLastPoppedFile = file;
 
             // Skip EoLS and EoR
             if (file.type == FileInfo::FileType::EOLS || file.type == FileInfo::FileType::EOR) {

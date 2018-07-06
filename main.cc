@@ -126,7 +126,7 @@ void RunDirectoryObserver::main()
     // INotify has to be set before we list the directory content, otherwise we have a race condition...
     tools::INotify inotify;
     try {
-        inotify.add_watch( runDirectoryPath, IN_CREATE );
+        inotify.add_watch( runDirectoryPath, IN_CLOSE_WRITE | IN_MOVED_TO );
     }
     //TODO: Move to the end of this function and make a more general case
     catch(const std::system_error& e) {
@@ -198,6 +198,8 @@ void RunDirectoryObserver::main()
         for (auto&& event : inotify.read()) {
             stats.inotify.nbAllFiles++;
 
+            std::cout << "DEBUG INOTIFY: " << event.name << std::endl;
+
             if ( boost::regex_match( event.name, fileFilter) ) {
                 bu::FileInfo file = bu::temporary::parseFileName( event.name.c_str() );
                 stats.inotify.nbJsnFiles++;
@@ -205,10 +207,10 @@ void RunDirectoryObserver::main()
             }
         }
 
-        std::cout << "DirectoryObserver: Alive" << std::endl;
-        std::cout << "DirectoryObserver statistics:" << std::endl;
-        std::cout << getStats();        
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        //std::cout << "DirectoryObserver: Alive" << std::endl;
+        //std::cout << "DirectoryObserver statistics:" << std::endl;
+        //std::cout << getStats();        
+        //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
 
     // Hola, finito!
@@ -382,7 +384,7 @@ namespace fu {
             std::string docRoot = "/fff/ramdisk"; 
 
             // Initialise the server.
-            http::server::server s(address, port, docRoot);
+            http::server::server s(address, port, docRoot, /*debug_http_requests*/ false);
 
             // Add handlers
             addServerHandlers(s);

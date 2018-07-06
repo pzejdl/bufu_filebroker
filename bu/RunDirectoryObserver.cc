@@ -39,6 +39,12 @@ std::string RunDirectoryObserver::getStats() const
     //             In principle, we should protect all statistics variables here...
     os << sep << "queueSize="                               << queue.size() << '\n';
     os << '\n';
+    if (stats.fuLastPoppedFile.type != FileInfo::FileType::EMPTY) {
+        os << sep << "fuLastPoppedFile=\""                         << stats.fuLastPoppedFile.fileName() << "\"\n";
+    } else {
+                os << sep << "fuLastGivenFile=NONE\n";
+    }
+    os << '\n';
     os << sep << "lastEoLS="                                << runDirectory.lastEoLS << '\n';
 
     return os.str();

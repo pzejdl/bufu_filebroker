@@ -98,6 +98,8 @@ struct RunDirectoryObserver {
         uint32_t nbJsnFilesOptimized = 0;
 
         uint32_t queueSizeMax = 0;                      // The largest queue size ever seen
+
+        FileInfo fuLastPoppedFile;                       // Last file given to FU
     } stats;
 
     std::mutex runDirectoryObserverLock;                // Synchronize updates

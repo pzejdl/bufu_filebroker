@@ -36,7 +36,7 @@ public:
   request_handler& operator=(const request_handler&) = delete;
 
   /// Construct with a directory containing files to be served.
-  explicit request_handler(const std::string& doc_root);
+  explicit request_handler(const std::string& doc_root, bool debug_http_requests);
 
   /// Handle a request and produce a reply.
   void handle_request(request& req, reply& rep);
@@ -50,6 +50,9 @@ public:
 private:
   /// The directory containing the files to be served.
   std::string doc_root_;
+
+  /// DEBUG: Prints http request
+  bool debug_http_requests_;
 
   std::vector< std::pair<std::string,RequestHandler_t> > handlers_;
 
