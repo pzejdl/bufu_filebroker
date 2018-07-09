@@ -198,7 +198,8 @@ void RunDirectoryObserver::main()
         for (auto&& event : inotify.read()) {
             stats.inotify.nbAllFiles++;
 
-            std::cout << "DEBUG INOTIFY: " << event.name << std::endl;
+            //TODO: Make it optional
+            //std::cout << "DEBUG INOTIFY: " << event.name << std::endl;
 
             if ( boost::regex_match( event.name, fileFilter) ) {
                 bu::FileInfo file = bu::temporary::parseFileName( event.name.c_str() );
@@ -392,7 +393,51 @@ namespace fu {
                 // Return statistics for all runs
                 rep.content.append( runDirectoryManager.getStats() );
             }
-        });        
+        });  
+
+        // HTML version of /stats
+        s.request_handler().add_handler("/html/stats",
+        [](const http::server::request& req, http::server::reply& rep)
+        {
+            rep.content_type = "text/html";
+
+            rep.content.append( "<html>\n" );
+            rep.content.append( "<head>\n" );
+            rep.content.append( "<title>BUFU File Server</title>" );
+            rep.content.append( "<meta http-equiv=\"refresh\" content=\"1\" />" );
+            rep.content.append( "</head>\n" );
+            rep.content.append( "<body>\n" );
+            rep.content.append( "<pre>\n" );
+
+            rep.content.append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
+
+            int runNumber = -1;
+            {
+                std::string strValue;
+                try {
+                    if (req.getParam("runnumber", strValue)) {
+                        runNumber = std::stoul(strValue);
+                    }
+                }
+                catch(const std::exception& e) {
+                    rep.content.append( "ERROR: Cannot parse query parameter: '" + strValue + '\'' );
+                    rep.status = http::server::reply::bad_request;
+                    return;
+                }
+            }
+
+            if (runNumber >= 0) {    
+                // Return statistics for one run
+                rep.content.append( runDirectoryManager.getStats(runNumber) );
+            } else {
+                // Return statistics for all runs
+                rep.content.append( runDirectoryManager.getStats() );
+            }
+
+            rep.content.append( "</pre>\n" );
+            rep.content.append( "</body>\n" );
+            rep.content.append( "</html>\n" );
+        });               
     }
 
     void server()
