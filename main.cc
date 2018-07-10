@@ -49,10 +49,12 @@ unsigned long getParamUL(const http::server::request& req, const std::string& ke
 #include <boost/chrono/io/time_point_io.hpp>
 #include <boost/chrono/chrono.hpp>
 
-
-void addServerHandlers(http::server::server& s)
+/*
+ * The web application(s) are defined here
+ */
+void createWebApplications(http::server::request_handler& app)
 {
-    s.request_handler().add_handler("/index.html",
+    app.add("/index.html",
     [](const http::server::request& req, http::server::reply& rep)
     {
         (void)req;
@@ -74,7 +76,7 @@ void addServerHandlers(http::server::server& s)
     });
 
 
-    s.request_handler().add_handler("/restart",
+    app.add("/restart",
     [](const http::server::request& req, http::server::reply& rep)
     {
         rep.content_type = "text/plain";
@@ -95,7 +97,7 @@ void addServerHandlers(http::server::server& s)
     });
 
 
-    s.request_handler().add_handler("/popfile",
+    app.add("/popfile",
     [](const http::server::request& req, http::server::reply& rep)
     {
         rep.content_type = "text/plain";
@@ -158,12 +160,8 @@ void addServerHandlers(http::server::server& s)
     });
 
 
-    s.request_handler().add_handler("/stats",
-    [](const http::server::request& req, http::server::reply& rep)
+    auto getStats = [](const http::server::request& req, http::server::reply& rep)
     {
-        rep.content_type = "text/plain";
-        rep.content.append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
-
         int runNumber = -1;
         {
             std::string strValue;
@@ -186,11 +184,22 @@ void addServerHandlers(http::server::server& s)
             // Return statistics for all runs
             rep.content.append( runDirectoryManager.getStats() );
         }
+    };
+
+
+    app.add("/stats",
+    [getStats](const http::server::request& req, http::server::reply& rep)
+    {
+        rep.content_type = "text/plain";
+        rep.content.append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
+
+        getStats( req, rep );
     });  
 
+
     // HTML version of /stats
-    s.request_handler().add_handler("/html/stats",
-    [](const http::server::request& req, http::server::reply& rep)
+    app.add("/html/stats",
+    [getStats](const http::server::request& req, http::server::reply& rep)
     {
         rep.content_type = "text/html";
 
@@ -204,28 +213,7 @@ void addServerHandlers(http::server::server& s)
 
         rep.content.append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
 
-        int runNumber = -1;
-        {
-            std::string strValue;
-            try {
-                if (req.getParam("runnumber", strValue)) {
-                    runNumber = std::stoul(strValue);
-                }
-            }
-            catch(const std::exception& e) {
-                rep.content.append( "ERROR: Cannot parse query parameter: '" + strValue + '\'' );
-                rep.status = http::server::reply::bad_request;
-                return;
-            }
-        }
-
-        if (runNumber >= 0) {    
-            // Return statistics for one run
-            rep.content.append( runDirectoryManager.getStats(runNumber) );
-        } else {
-            // Return statistics for all runs
-            rep.content.append( runDirectoryManager.getStats() );
-        }
+        getStats( req, rep );
 
         rep.content.append( "</pre>\n" );
         rep.content.append( "</body>\n" );
@@ -233,7 +221,6 @@ void addServerHandlers(http::server::server& s)
     });               
 }
 
-#include <stdexcept>
 
 void server()
 {
@@ -247,7 +234,7 @@ void server()
         http::server::server s(address, port, docRoot, /*debug_http_requests*/ false);
 
         // Add handlers
-        addServerHandlers(s);
+        createWebApplications( s.request_handler() );
 
         std::cout << "Server: Starting HTTP server at " << address << ':' << port << docRoot << std::endl;
 
@@ -261,6 +248,9 @@ void server()
     }
 }
 
+/*
+ * This is the main function where everything start and should end... :)
+ */
 
 int main()
 {
@@ -271,10 +261,6 @@ int main()
 
     try {
         std::thread server( ::server );
-        //server.detach();
-
-        //std::this_thread::sleep_for(std::chrono::seconds(600));
-
         server.join();
     }
     catch (const std::system_error& e) {

@@ -42,7 +42,7 @@ public:
   void handle_request(request& req, reply& rep);
 
   // Register a handler for the specific path
-  void add_handler(std::string&& path, RequestHandler_t&& handler)
+  void add(std::string&& path, RequestHandler_t&& handler)
   {
     handlers_.emplace_back( std::move(path), std::move(handler) );
   }
