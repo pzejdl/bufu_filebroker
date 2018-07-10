@@ -3,7 +3,7 @@
 cmake_minimum_required(VERSION 2.8)
 
 project(bufu_fileserver)
-set (BUFU_FILESERVER_VERSION "\"0.22\"")
+set (BUFU_FILESERVER_VERSION "\"0.3\"")
 
 # C++ compiler flags
 set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wextra -rdynamic -O0 -g")
