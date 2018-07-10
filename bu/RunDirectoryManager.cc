@@ -15,27 +15,52 @@ namespace bu {
 
 RunDirectoryManager::RunDirectoryManager() {}
 
-
-std::tuple< FileInfo, RunDirectoryManager::RunDirectoryStatus > RunDirectoryManager::popRunFile(int runNumber)
+/*
+ * Test whether we have to artificially force EOLS if stopLS is greater then the current lumiSection
+ * or we have EoLS in the stopLS lumiSection.
+ */
+bool RunDirectoryManager::isStopLS(const RunDirectoryObserverPtr& observer, int stopLS) const
 {
+    if (stopLS < 0) 
+        return false;
+    
+    if (!observer->queue.empty()) {
+        const FileInfo& file = observer->queue.front();
+        if  ( 
+            ( (long)file.lumiSection == stopLS && file.type == FileInfo::FileType::EOLS ) ||
+            ( (long)file.lumiSection > stopLS ) 
+            ) { 
+            return true;
+        }    
+    } else if (observer->runDirectory.lastEoLS >= stopLS) {
+        return true;
+    }
+
+    return false;
+}
+
+
+std::tuple< FileInfo, RunDirectoryManager::RunDirectoryStatus > RunDirectoryManager::popRunFile(int runNumber, int stopLS)
+{
+    static const FileInfo emptyFile; 
     FileInfo file;
     RunDirectoryStatus run;
 
-    // TODO: It will be update outside only during first initial phase!
-    // TODO: Make state changes when file is processed here...!!! 
-
-    // TODO: Make a part of RunDirectoryObserver
     RunDirectoryObserverPtr observer = getRunDirectoryObserver( runNumber );
-
     {    
         std::lock_guard<std::mutex> lock(observer->runDirectoryObserverLock);
 
+        if (isStopLS(observer, stopLS)) {
+            observer->stats.fu.stopLS = stopLS;
+            run.state = RunDirectoryObserver::State::EOR;
+            run.lastEoLS = stopLS;
+            return std::tie( emptyFile, run );
+        }
+
         while (!observer->queue.empty()) {
             file = std::move( observer->queue.front() );
-            observer->updateStats( file );
+            observer->updateStats( file, /*updateFU*/ true );
             observer->queue.pop();
-            //TODO: Move to updateStats but mark that was FU
-            observer->stats.fuLastPoppedFile = file;
 
             // Skip EoLS and EoR
             if (file.type == FileInfo::FileType::EOLS || file.type == FileInfo::FileType::EOR) {
@@ -49,7 +74,6 @@ std::tuple< FileInfo, RunDirectoryManager::RunDirectoryStatus > RunDirectoryMana
         run.state = observer->runDirectory.state;
         run.lastEoLS = observer->runDirectory.lastEoLS;
     }
-
     return std::tie( file, run );
 }
 

@@ -59,7 +59,7 @@ struct RunDirectoryObserver {
     void main();
 
     void pushFile(bu::FileInfo file);
-    void updateStats(const bu::FileInfo& file);
+    void updateStats(const bu::FileInfo& file, bool updateFU);
     void optimizeAndPushFiles(const files_t& files);
 
 
@@ -75,6 +75,7 @@ struct RunDirectoryObserver {
 
     struct RunDirectory {
         std::atomic<State> state { State::INIT };
+        // TODO: move lastEoLS to FU statistics since it is assigned in FU request
         int lastEoLS = -1;
     } runDirectory;
 
@@ -99,7 +100,11 @@ struct RunDirectoryObserver {
 
         uint32_t queueSizeMax = 0;                      // The largest queue size ever seen
 
-        FileInfo fuLastPoppedFile;                       // Last file given to FU
+        struct FU {
+            FileInfo lastPoppedFile;                    // Last file given to FU
+            // TODO: This should be per FU
+            int stopLS = -1;                            // Remembers is stopLS was specified in the request from FU
+        } fu;
     } stats;
 
     std::mutex runDirectoryObserverLock;                // Synchronize updates

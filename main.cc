@@ -28,7 +28,7 @@ bu::RunDirectoryManager runDirectoryManager;
 /*****************************************************************************/
 
 
-unsigned long getParamUL(const http::server::request& req, const std::string& key)
+unsigned long getParamUL(const http::server::request& req, const std::string& key, bool isOptional = false, unsigned long defaultValue = -1)
 {
     std::string strValue;
     unsigned long value;
@@ -38,10 +38,15 @@ unsigned long getParamUL(const http::server::request& req, const std::string& ke
         }
         catch(const std::exception& e) {
             throw std::invalid_argument("ERROR: Cannot parse query parameter: '" + key + '=' + strValue + '\'');  
+        }
+        if ( (long)value < 0) {
+            throw std::invalid_argument("ERROR: Negative value present in the query parameter: '" + key + '=' + strValue + '\'');     
         } 
-    } else {
+    } else if (!isOptional) {
         throw std::out_of_range("ERROR: Parameter '" + key + "' was not found in the query.");
-    }    
+    } else {
+        return defaultValue;
+    }
     return value;
 }
 
@@ -103,9 +108,12 @@ void createWebApplications(http::server::request_handler& app)
         rep.content_type = "text/plain";
         rep.content.append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
 
+        // Parse query parameters
         int runNumber;
+        int stopLS = -1;
         try {
-            runNumber = getParamUL(req, "runnumber");
+            runNumber   = getParamUL(req, "runnumber");
+            stopLS      = getParamUL(req, "stopls", /*isOptional*/ true);
         }
         catch (std::logic_error& e) {
             rep.content.append(e.what());
@@ -113,16 +121,16 @@ void createWebApplications(http::server::request_handler& app)
             return;
         }
 
-        //Get file
+        // Get file
         std::ostringstream os;
 
         bu::FileInfo file;
         bu::RunDirectoryManager::RunDirectoryStatus run;        
 
-        std::tie( file, run ) = runDirectoryManager.popRunFile( runNumber );
+        std::tie( file, run ) = runDirectoryManager.popRunFile( runNumber, stopLS );
 
-        os << "runnumber=" << runNumber << '\n';
-        os << "state=" << run.state << '\n';
+        os << "runnumber="  << runNumber << '\n';
+        os << "state="      << run.state << '\n';
 
         if (run.state == bu::RunDirectoryObserver::State::ERROR) {
             os << "errormessage=\"" << runDirectoryManager.getError( runNumber ) << "\"\n";
@@ -130,30 +138,29 @@ void createWebApplications(http::server::request_handler& app)
 
         if (file.type != bu::FileInfo::FileType::EMPTY) { 
             assert( (uint32_t)runNumber == file.runNumber);
-
-            os << "file=\"" << file.fileName()<< "\"\n";
-            os << "lumisection=" << file.lumiSection << '\n';
-            os << "index=" << file.index << '\n';
+            os << "file=\""         << file.fileName()<< "\"\n";
+            os << "lumisection="    << file.lumiSection << '\n';
+            os << "index="          << file.index << '\n';
         } else { 
-            os << "lumisection=" << run.lastEoLS << '\n';
+            os << "lumisection="    << run.lastEoLS << '\n';
         }
-        os << "lasteols=" << run.lastEoLS << '\n';
+        os << "lasteols="           << run.lastEoLS << '\n';
 
 
         // TODO: DEBUG Make this optional
         if (false) { 
-            // TODO: Move timestamts to tools
+            // TODO: Move timestamps to tools
             std::cout << boost::chrono::time_fmt(boost::chrono::timezone::local) << boost::chrono::system_clock::now() << ' ';
             //std::cout << boost::chrono::system_clock::now() << '\n';
 
             std::cout << "DEBUG POPFILE: " << run.state << ' ';
             if (file.type != bu::FileInfo::FileType::EMPTY) { 
-                std::cout << '\"' << file.fileName() << "\" ";
+                std::cout << '\"'           << file.fileName() << "\" ";
                 std::cout << "lumisection=" << file.lumiSection << ' ';
             } else {
                 std::cout << "lumisection=" << run.lastEoLS << ' ';
             }
-            std::cout << "lasteols=" << run.lastEoLS << std::endl;
+            std::cout << "lasteols="        << run.lastEoLS << std::endl;
         }
 
         rep.content.append( os.str() );

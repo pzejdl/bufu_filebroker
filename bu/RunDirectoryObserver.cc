@@ -42,11 +42,12 @@ std::string RunDirectoryObserver::getStats() const
     //             In principle, we should protect all statistics variables here...
     os << sep << "queueSize="                               << queue.size() << '\n';
     os << '\n';
-    if (stats.fuLastPoppedFile.type != FileInfo::FileType::EMPTY) {
-        os << sep << "fuLastPoppedFile=\""                         << stats.fuLastPoppedFile.fileName() << "\"\n";
+    if (stats.fu.lastPoppedFile.type != FileInfo::FileType::EMPTY) {
+        os << sep << "fu.lastPoppedFile=\""                 << stats.fu.lastPoppedFile.fileName() << "\"\n";
     } else {
-                os << sep << "fuLastGivenFile=NONE\n";
+        os << sep << "fu.lastPoppedFile=NONE\n";
     }
+    os << sep << "fu.stopLS="                               << stats.fu.stopLS << '\n';
     os << '\n';
     os << sep << "lastEoLS="                                << runDirectory.lastEoLS << '\n';
 
@@ -82,8 +83,10 @@ void RunDirectoryObserver::pushFile(bu::FileInfo file)
     }
 }
 
-
-void RunDirectoryObserver::updateStats(const bu::FileInfo& file)
+// TODO: Split into two functions:
+// - updateRunDirectoryStats
+// - updateFUStats
+void RunDirectoryObserver::updateStats(const bu::FileInfo& file, bool updateFU)
 {
     // Sanity check. In principle always OK.
     assert( (uint32_t)runNumber == file.runNumber );
@@ -97,6 +100,11 @@ void RunDirectoryObserver::updateStats(const bu::FileInfo& file)
     } else {
         assert( file.type == bu::FileInfo::FileType::INDEX );
         runDirectory.state = bu::RunDirectoryObserver::State::READY;
+    }
+
+    // WHen update is run from FU request
+    if (updateFU) {
+        stats.fu.lastPoppedFile = file;
     }
 }
 
@@ -112,7 +120,7 @@ void RunDirectoryObserver::optimizeAndPushFiles(const bu::files_t& files)
             // We can update statistics only for files that we skip here
             // Later, the statistics is updated when FU asks for a file 
             stats.startup.nbJsnFilesOptimized++; 
-            updateStats(file);
+            updateStats(file, /*updateFU*/ false);
             continue;
         }
         sawIndexFile = true;

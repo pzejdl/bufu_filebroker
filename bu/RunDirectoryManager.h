@@ -16,21 +16,11 @@ public:
         int lastEoLS;
     };
 
-    // struct RunFileInfo {
-    //     FileInfo fileInfo;
-    //      struct RunDirectory {
-    //         RunDirectoryObserver::State state;
-    //         int lastEoLS;
-    //         int lastIndex;
-    //      } runDirectory;
-    // };
-    // Will return FileInfo and RunDirectoryInfo 
-
 public:
     RunDirectoryManager();
 
     //TODO: Candidate for structured binding with std::optional in C++17
-    std::tuple< FileInfo, RunDirectoryStatus > popRunFile(int runNumber);
+    std::tuple< FileInfo, RunDirectoryStatus > popRunFile(int runNumber, int stopLS = -1);
 
     // Get statistics for all runs
     const std::string getStats();
@@ -48,6 +38,7 @@ private:
     RunDirectoryObserverPtr getRunDirectoryObserver(int runNumber);
     RunDirectoryObserverPtr createRunDirectoryObserver(int runNumber);
     void startRunner(const RunDirectoryObserverPtr& observer) const;
+    bool isStopLS(const RunDirectoryObserverPtr& observer, int stopLS) const;
 
 private:
     std::unordered_map< int, RunDirectoryObserverPtr > runDirectoryObservers_;
