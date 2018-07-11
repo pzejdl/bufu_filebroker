@@ -40,11 +40,12 @@ bool RunDirectoryManager::isStopLS(const RunDirectoryObserverPtr& observer, int 
 }
 
 
-std::tuple< FileInfo, RunDirectoryManager::RunDirectoryStatus > RunDirectoryManager::popRunFile(int runNumber, int stopLS)
+std::tuple< FileInfo, RunDirectoryObserver::State, int > RunDirectoryManager::popRunFile(int runNumber, int stopLS)
 {
     static const FileInfo emptyFile; 
     FileInfo file;
-    RunDirectoryStatus run;
+    RunDirectoryObserver::State state;
+    int lastEoLS;
 
     RunDirectoryObserverPtr observer = getRunDirectoryObserver( runNumber );
     {    
@@ -52,9 +53,7 @@ std::tuple< FileInfo, RunDirectoryManager::RunDirectoryStatus > RunDirectoryMana
 
         if (isStopLS(observer, stopLS)) {
             observer->stats.fu.stopLS = stopLS;
-            run.state = RunDirectoryObserver::State::EOR;
-            run.lastEoLS = stopLS;
-            return std::tie( emptyFile, run );
+            return std::make_tuple( emptyFile, RunDirectoryObserver::State::EOR, stopLS );
         }
 
         while (!observer->queue.empty()) {
@@ -70,11 +69,10 @@ std::tuple< FileInfo, RunDirectoryManager::RunDirectoryStatus > RunDirectoryMana
             }
             break;
         }
-
-        run.state = observer->stats.fu.state;
-        run.lastEoLS = observer->stats.fu.lastEoLS;
+        state = observer->stats.fu.state;
+        lastEoLS = observer->stats.fu.lastEoLS;
     }
-    return std::tie( file, run );
+    return std::make_tuple( file, state, lastEoLS );
 }
 
 

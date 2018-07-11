@@ -123,16 +123,16 @@ void createWebApplications(http::server::request_handler& app)
 
         // Get file
         std::ostringstream os;
-
         bu::FileInfo file;
-        bu::RunDirectoryManager::RunDirectoryStatus run;        
+        bu::RunDirectoryObserver::State state;
+        int lastEoLS;
 
-        std::tie( file, run ) = runDirectoryManager.popRunFile( runNumber, stopLS );
+        std::tie( file, state, lastEoLS ) = runDirectoryManager.popRunFile( runNumber, stopLS );
 
         os << "runnumber="  << runNumber << '\n';
-        os << "state="      << run.state << '\n';
+        os << "state="      << state << '\n';
 
-        if (run.state == bu::RunDirectoryObserver::State::ERROR) {
+        if (state == bu::RunDirectoryObserver::State::ERROR) {
             os << "errormessage=\"" << runDirectoryManager.getError( runNumber ) << "\"\n";
         }
 
@@ -142,9 +142,9 @@ void createWebApplications(http::server::request_handler& app)
             os << "lumisection="    << file.lumiSection << '\n';
             os << "index="          << file.index << '\n';
         } else { 
-            os << "lumisection="    << run.lastEoLS << '\n';
+            os << "lumisection="    << lastEoLS << '\n';
         }
-        os << "lasteols="           << run.lastEoLS << '\n';
+        os << "lasteols="           << lastEoLS << '\n';
 
 
         // TODO: DEBUG Make this optional
@@ -153,14 +153,14 @@ void createWebApplications(http::server::request_handler& app)
             std::cout << boost::chrono::time_fmt(boost::chrono::timezone::local) << boost::chrono::system_clock::now() << ' ';
             //std::cout << boost::chrono::system_clock::now() << '\n';
 
-            std::cout << "DEBUG POPFILE: " << run.state << ' ';
+            std::cout << "DEBUG POPFILE: " << state << ' ';
             if (file.type != bu::FileInfo::FileType::EMPTY) { 
                 std::cout << '\"'           << file.fileName() << "\" ";
                 std::cout << "lumisection=" << file.lumiSection << ' ';
             } else {
-                std::cout << "lumisection=" << run.lastEoLS << ' ';
+                std::cout << "lumisection=" << lastEoLS << ' ';
             }
-            std::cout << "lasteols="        << run.lastEoLS << std::endl;
+            std::cout << "lasteols="        << lastEoLS << std::endl;
         }
 
         rep.content.append( os.str() );

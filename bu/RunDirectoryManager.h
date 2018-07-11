@@ -11,16 +11,22 @@ namespace bu {
 class RunDirectoryManager {
 public:
 
-    struct RunDirectoryStatus {
-        RunDirectoryObserver::State state;
-        int lastEoLS;
-    };
+    // struct RunFileInfo {
+    //     FileInfo file;
+    //     RunDirectoryObserver::State state;
+    //     int lastEoLS;
+    // };
 
 public:
     RunDirectoryManager();
 
-    //TODO: Candidate for structured binding with std::optional in C++17
-    std::tuple< FileInfo, RunDirectoryStatus > popRunFile(int runNumber, int stopLS = -1);
+    /*
+     * Returns a tuple of:
+     *   file, state, lastEoLS
+     * 
+     * TODO: Candidate for structured binding with std::optional in C++17
+     */
+    std::tuple< FileInfo, RunDirectoryObserver::State, int > popRunFile(int runNumber, int stopLS = -1);
 
     // Get statistics for all runs
     const std::string getStats();
