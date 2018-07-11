@@ -32,7 +32,7 @@ bool RunDirectoryManager::isStopLS(const RunDirectoryObserverPtr& observer, int 
             ) { 
             return true;
         }    
-    } else if (observer->runDirectory.lastEoLS >= stopLS) {
+    } else if (observer->stats.fu.lastEoLS >= stopLS) {
         return true;
     }
 
@@ -59,7 +59,7 @@ std::tuple< FileInfo, RunDirectoryManager::RunDirectoryStatus > RunDirectoryMana
 
         while (!observer->queue.empty()) {
             file = std::move( observer->queue.front() );
-            observer->updateStats( file, /*updateFU*/ true );
+            observer->updateFUStats( file );
             observer->queue.pop();
 
             // Skip EoLS and EoR
@@ -71,8 +71,8 @@ std::tuple< FileInfo, RunDirectoryManager::RunDirectoryStatus > RunDirectoryMana
             break;
         }
 
-        run.state = observer->runDirectory.state;
-        run.lastEoLS = observer->runDirectory.lastEoLS;
+        run.state = observer->stats.fu.state;
+        run.lastEoLS = observer->stats.fu.lastEoLS;
     }
     return std::tie( file, run );
 }
@@ -141,11 +141,12 @@ RunDirectoryObserverPtr RunDirectoryManager::getRunDirectoryObserver(int runNumb
 // TODO: Move to RunDirectoryObserver
 void RunDirectoryManager::startRunner(const RunDirectoryObserverPtr& observer) const
 {
-    assert( observer->runDirectory.state == RunDirectoryObserver::State::INIT );
+    assert( observer->stats.run.state == RunDirectoryObserver::State::INIT );
 
     observer->runner = std::thread(&RunDirectoryObserver::run, observer);
     observer->runner.detach();
-    observer->runDirectory.state = RunDirectoryObserver::State::STARTING;
+    observer->stats.run.state = RunDirectoryObserver::State::STARTING;
+    observer->stats.fu.state = RunDirectoryObserver::State::STARTING;
 }
 
 

@@ -22,9 +22,7 @@ std::string RunDirectoryObserver::getStats() const
     const char *sep = "  ";
     std::ostringstream os;
 
-    os << "runNumber=" << runNumber << std::endl;
-    os << sep << "state=" << runDirectory.state << std::endl;
-    os << '\n';
+    os << "runNumber="                                      << runNumber << std::endl;
     os << sep << "startup.nbJsnFiles="                      << stats.startup.nbJsnFiles << std::endl;
     os << sep << "startup.nbJsnFilesOptimized="             << stats.startup.nbJsnFilesOptimized << '\n';
     os << sep << "startup.inotify.nbAllFiles="              << stats.startup.inotify.nbAllFiles << std::endl;
@@ -37,19 +35,18 @@ std::string RunDirectoryObserver::getStats() const
     os << sep << "nbJsnFilesProcessed="                     << stats.nbJsnFilesProcessed << std::endl;
     os << sep << "nbJsnFilesOptimized="                     << stats.nbJsnFilesOptimized << '\n';
     os << '\n';
+    os << sep << "run.state="                               << stats.run.state << std::endl;
+    os << sep << "run.lastProcessedFile=\""                 << stats.run.lastProcessedFile.fileName() << "\"\n";
+    os << sep << "run.lastEoLS="                            << stats.run.lastEoLS << '\n';
+    os << '\n';
     os << sep << "queueSizeMax="                            << stats.queueSizeMax << '\n';
-    // TODO: NOTE: queue.size() is not protected by lock or memory barrier, therefore we will get a number that is not up-to-date, but it doesn't matter
-    //             In principle, we should protect all statistics variables here...
+    // NOTE: queue.size() is not protected by lock or memory barrier, therefore we will get a number that is not up-to-date, but it doesn't matter
     os << sep << "queueSize="                               << queue.size() << '\n';
     os << '\n';
-    if (stats.fu.lastPoppedFile.type != FileInfo::FileType::EMPTY) {
-        os << sep << "fu.lastPoppedFile=\""                 << stats.fu.lastPoppedFile.fileName() << "\"\n";
-    } else {
-        os << sep << "fu.lastPoppedFile=NONE\n";
-    }
+    os << sep << "fu.state="                                << stats.fu.state << std::endl;
+    os << sep << "fu.lastPoppedFile=\""                     << stats.fu.lastPoppedFile.fileName() << "\"\n";
+    os << sep << "fu.lastEoLS="                             << stats.fu.lastEoLS << '\n';
     os << sep << "fu.stopLS="                               << stats.fu.stopLS << '\n';
-    os << '\n';
-    os << sep << "lastEoLS="                                << runDirectory.lastEoLS << '\n';
 
     return os.str();
 }
@@ -83,29 +80,44 @@ void RunDirectoryObserver::pushFile(bu::FileInfo file)
     }
 }
 
-// TODO: Split into two functions:
-// - updateRunDirectoryStats
-// - updateFUStats
-void RunDirectoryObserver::updateStats(const bu::FileInfo& file, bool updateFU)
+
+void RunDirectoryObserver::updateRunDirectoryStats(const bu::FileInfo& file)
 {
     // Sanity check. In principle always OK.
     assert( (uint32_t)runNumber == file.runNumber );
     assert( file.type != FileInfo::FileType::EMPTY );
 
     if (file.isEoLS()) {
-        runDirectory.lastEoLS = file.lumiSection;
-        runDirectory.state = State::EOLS;
+        stats.run.lastEoLS = file.lumiSection;
+        stats.run.state = State::EOLS;
     } else if (file.isEoR()) {
-        runDirectory.state = bu::RunDirectoryObserver::State::EOR;
+        stats.run.state = bu::RunDirectoryObserver::State::EOR;
     } else {
         assert( file.type == bu::FileInfo::FileType::INDEX );
-        runDirectory.state = bu::RunDirectoryObserver::State::READY;
+        stats.run.state = bu::RunDirectoryObserver::State::READY;
     }
 
-    // WHen update is run from FU request
-    if (updateFU) {
-        stats.fu.lastPoppedFile = file;
+    stats.run.lastProcessedFile = file;
+}
+
+
+void RunDirectoryObserver::updateFUStats(const bu::FileInfo& file)
+{
+    // Sanity check. In principle always OK.
+    assert( (uint32_t)runNumber == file.runNumber );
+    assert( file.type != FileInfo::FileType::EMPTY );
+
+    if (file.isEoLS()) {
+        stats.fu.lastEoLS = file.lumiSection;
+        stats.fu.state = State::EOLS;
+    } else if (file.isEoR()) {
+        stats.fu.state = bu::RunDirectoryObserver::State::EOR;
+    } else {
+        assert( file.type == bu::FileInfo::FileType::INDEX );
+        stats.fu.state = bu::RunDirectoryObserver::State::READY;
     }
+
+    stats.fu.lastPoppedFile = file;
 }
 
 
@@ -120,11 +132,15 @@ void RunDirectoryObserver::optimizeAndPushFiles(const bu::files_t& files)
             // We can update statistics only for files that we skip here
             // Later, the statistics is updated when FU asks for a file 
             stats.startup.nbJsnFilesOptimized++; 
-            updateStats(file, /*updateFU*/ false);
+            updateRunDirectoryStats( file );
+
+            // If we are skipping files, we have to update FU lastEoLS statistics here so it can be correctly reported when FU asks for a file for the first time
+            stats.fu.lastEoLS = stats.run.lastEoLS;
             continue;
         }
         sawIndexFile = true;
 
+        updateRunDirectoryStats( file );
         pushFile( std::move(file) );
     }
 }
@@ -165,7 +181,7 @@ void RunDirectoryObserver::main()
     }
     //TODO: Move to the end of this function and make a more general case
     catch(const std::system_error& e) {
-        runDirectory.state = bu::RunDirectoryObserver::State::ERROR;
+        stats.run.state = bu::RunDirectoryObserver::State::ERROR;
         errorMessage = e.what();
         std::cout << "DirectoryObserver: ERROR: " << errorMessage << std::endl;
         std::cout << "DirectoryObserver: Finished" << std::endl;
@@ -217,10 +233,9 @@ void RunDirectoryObserver::main()
 
     optimizeAndPushFiles(files);
 
-    // TODO: Prevent double updates on statistics!!!
     // TODO: Check if FUs can start reading earlier...
     // FUs can start reading from our queue NOW
-    runDirectory.state = bu::RunDirectoryObserver::State::READY;
+    stats.fu.state = bu::RunDirectoryObserver::State::READY;
 
     /**************************************************************************
      * PHASE III - The main loop: Now, we rely on the Inotify
@@ -251,7 +266,7 @@ void RunDirectoryObserver::main()
 
     // Hola, finito!
     std::cout << "DirectoryObserver: Finished" << std::endl;
-    runDirectory.state = bu::RunDirectoryObserver::State::STOP;
+    stats.run.state = bu::RunDirectoryObserver::State::STOP;
 }
 
 

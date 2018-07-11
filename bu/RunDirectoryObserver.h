@@ -59,7 +59,9 @@ struct RunDirectoryObserver {
     void main();
 
     void pushFile(bu::FileInfo file);
-    void updateStats(const bu::FileInfo& file, bool updateFU);
+    //void updateStats(const bu::FileInfo& file, bool updateFU);
+    void updateRunDirectoryStats(const bu::FileInfo& file);
+    void updateFUStats(const bu::FileInfo& file);
     void optimizeAndPushFiles(const files_t& files);
 
 
@@ -73,13 +75,6 @@ struct RunDirectoryObserver {
     std::atomic<bool> running { true };
     std::thread runner;
 
-    struct RunDirectory {
-        std::atomic<State> state { State::INIT };
-        // TODO: move lastEoLS to FU statistics since it is assigned in FU request
-        int lastEoLS = -1;
-    } runDirectory;
-
-    //TODO
     struct Statistics {
         struct Inotify {
             uint32_t nbAllFiles = 0;                    // Number of all files INotify saw
@@ -98,11 +93,19 @@ struct RunDirectoryObserver {
         uint32_t nbJsnFilesProcessed = 0;               // Number of all .jsn files put into the queue
         uint32_t nbJsnFilesOptimized = 0;
 
+        struct RunDirectory {
+            State state { State::INIT };
+            FileInfo lastProcessedFile;                     // Last processed file
+            int lastEoLS = -1;                              // Last EoLS seen in the run directory
+        } run;
+
         uint32_t queueSizeMax = 0;                      // The largest queue size ever seen
 
         struct FU {
+            State state { State::INIT };
             FileInfo lastPoppedFile;                    // Last file given to FU
-            // TODO: This should be per FU
+            int lastEoLS = -1;                          // Last EoLS FU saw
+            // TODO: The following counter should be per FU?
             int stopLS = -1;                            // Remembers is stopLS was specified in the request from FU
         } fu;
     } stats;

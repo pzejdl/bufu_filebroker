@@ -50,16 +50,20 @@ namespace bu {
          *       it is not the original filename. But it must have the same name.
          */
         std::string fileName() const {
-            std::ostringstream os;
-            // From Remi's DiskWriter.cc
-            os << std::setfill('0') <<
-                "run"<< std::setw(6) << runNumber <<
-                "_ls" << std::setw(4) << lumiSection <<
-                '_' << type;
-            if (type == FileType::INDEX) {
-                os << std::setw(6) << index;        
-            }     
-            return os.str();
+            if (type == FileType::EMPTY) {
+                return "";
+            } else {
+                std::ostringstream os;
+                // From Remi's DiskWriter.cc
+                os << std::setfill('0') <<
+                    "run"<< std::setw(6) << runNumber <<
+                    "_ls" << std::setw(4) << lumiSection <<
+                    '_' << type;
+                if (type == FileType::INDEX) {
+                    os << std::setw(6) << index;        
+                }     
+                return os.str();
+            }
         }
 
         friend std::ostream& operator<<(std::ostream& os, const FileInfo file) {
