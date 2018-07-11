@@ -3,10 +3,10 @@
 cmake_minimum_required(VERSION 2.8)
 
 project(bufu_fileserver)
-set (BUFU_FILESERVER_VERSION "\"0.31\"")
+set (BUFU_FILESERVER_VERSION "\"0.4\"")
 
 # C++ compiler flags
-set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wextra -rdynamic -O2 -g")
+set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wextra -rdynamic -O0 -g")
 
 # Sets the version we have
 set(Boost_ADDITIONAL_VERSIONS "1.53")

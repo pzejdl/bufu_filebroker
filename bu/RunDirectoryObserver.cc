@@ -22,20 +22,22 @@ std::string RunDirectoryObserver::getStats() const
     const char *sep = "  ";
     std::ostringstream os;
 
-    os << "runNumber="                                      << runNumber << std::endl;
-    os << sep << "startup.nbJsnFiles="                      << stats.startup.nbJsnFiles << std::endl;
+    os << "runNumber="                                      << runNumber << '\n';
+    os << sep << "startup.nbJsnFiles="                      << stats.startup.nbJsnFiles << '\n';
     os << sep << "startup.nbJsnFilesOptimized="             << stats.startup.nbJsnFilesOptimized << '\n';
-    os << sep << "startup.inotify.nbAllFiles="              << stats.startup.inotify.nbAllFiles << std::endl;
-    os << sep << "startup.inotify.nbJsnFiles="              << stats.startup.inotify.nbJsnFiles << std::endl;
-    os << sep << "startup.inotify.nbJsnFilesDuplicated="    << stats.startup.inotify.nbJsnFilesDuplicated << std::endl;
+    os << sep << "startup.inotify.nbAllFiles="              << stats.startup.inotify.nbAllFiles << '\n';
+    os << sep << "startup.inotify.nbJsnFiles="              << stats.startup.inotify.nbJsnFiles << '\n';
+    os << sep << "startup.inotify.nbJsnFilesDuplicated="    << stats.startup.inotify.nbJsnFilesDuplicated << '\n';
     os << '\n';
-    os << sep << "inotify.nbAllFiles="                      << stats.inotify.nbAllFiles << std::endl;
-    os << sep << "inotify.nbJsnFiles="                      << stats.inotify.nbJsnFiles << std::endl;
+    os << sep << "inotify.nbAllFiles="                      << stats.inotify.nbAllFiles << '\n';
+    os << sep << "inotify.nbJsnFiles="                      << stats.inotify.nbJsnFiles << '\n';
     os << '\n';
-    os << sep << "nbJsnFilesProcessed="                     << stats.nbJsnFilesProcessed << std::endl;
+    os << sep << "nbJsnFilesProcessed="                     << stats.nbJsnFilesProcessed << '\n';
     os << sep << "nbJsnFilesOptimized="                     << stats.nbJsnFilesOptimized << '\n';
     os << '\n';
-    os << sep << "run.state="                               << stats.run.state << std::endl;
+    os << sep << "errorMessage=\""                          << errorMessage << "\"\n";
+    os << '\n';
+    os << sep << "run.state="                               << stats.run.state << '\n';
     os << sep << "run.lastProcessedFile=\""                 << stats.run.lastProcessedFile.fileName() << "\"\n";
     os << sep << "run.lastEoLS="                            << stats.run.lastEoLS << '\n';
     os << '\n';
@@ -43,10 +45,11 @@ std::string RunDirectoryObserver::getStats() const
     // NOTE: queue.size() is not protected by lock or memory barrier, therefore we will get a number that is not up-to-date, but it doesn't matter
     os << sep << "queueSize="                               << queue.size() << '\n';
     os << '\n';
-    os << sep << "fu.state="                                << stats.fu.state << std::endl;
+    os << sep << "fu.state="                                << stats.fu.state << '\n';
     os << sep << "fu.lastPoppedFile=\""                     << stats.fu.lastPoppedFile.fileName() << "\"\n";
     os << sep << "fu.lastEoLS="                             << stats.fu.lastEoLS << '\n';
     os << sep << "fu.stopLS="                               << stats.fu.stopLS << '\n';
+    os << '\n';
 
     return os.str();
 }
@@ -181,9 +184,16 @@ void RunDirectoryObserver::main()
     }
     //TODO: Move to the end of this function and make a more general case
     catch(const std::system_error& e) {
-        stats.run.state = bu::RunDirectoryObserver::State::ERROR;
+        if (e.code().value() == static_cast<int>(std::errc::no_such_file_or_directory)) {
+            // Special handling for a case when the run directory doesn't exists (Srecko's request)
+            stats.run.state = bu::RunDirectoryObserver::State::NORUN;
+            stats.fu.state = bu::RunDirectoryObserver::State::NORUN;
+        } else {
+            stats.run.state = bu::RunDirectoryObserver::State::ERROR;
+            stats.fu.state = bu::RunDirectoryObserver::State::ERROR;
+        }
         errorMessage = e.what();
-        std::cout << "DirectoryObserver: ERROR: " << errorMessage << std::endl;
+        std::cout << "DirectoryObserver: ERROR: \"" << errorMessage << "\", error code: " << e.code() << std::endl;
         std::cout << "DirectoryObserver: Finished" << std::endl;
         return;
     }
@@ -283,6 +293,7 @@ std::ostream& operator<< (std::ostream& os, RunDirectoryObserver::State state)
         case RunDirectoryObserver::State::EOR:      return os << "EOR";
         case RunDirectoryObserver::State::STOP:     return os << "STOP";
         case RunDirectoryObserver::State::ERROR:    return os << "ERROR";
+        case RunDirectoryObserver::State::NORUN:    return os << "NORUN";
         // Omit default case to trigger compiler warning for missing cases
     };
     return os;

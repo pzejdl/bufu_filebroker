@@ -132,7 +132,7 @@ void createWebApplications(http::server::request_handler& app)
         os << "runnumber="  << runNumber << '\n';
         os << "state="      << state << '\n';
 
-        if (state == bu::RunDirectoryObserver::State::ERROR) {
+        if (state == bu::RunDirectoryObserver::State::ERROR || state == bu::RunDirectoryObserver::State::NORUN) {
             os << "errormessage=\"" << runDirectoryManager.getError( runNumber ) << "\"\n";
         }
 
@@ -264,7 +264,7 @@ int main()
     //int runNumber = 1000030354;
     //int runNumber = 615052;
 
-    std::cout << "BUFU-FIleServer v" << BUFU_FILESERVER_VERSION << std::endl;
+    std::cout << "BUFU-FileServer v" << BUFU_FILESERVER_VERSION << std::endl;
 
     try {
         std::thread server( ::server );

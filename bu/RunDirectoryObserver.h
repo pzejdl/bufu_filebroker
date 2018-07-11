@@ -38,7 +38,7 @@ typedef std::queue<bu::FileInfo> FileQueue_t;
 struct RunDirectoryObserver {
     // Note that this class cannot be copied or moved because of queue
 
-    enum class State { INIT, STARTING, READY, EOLS, EOR, STOP, ERROR };
+    enum class State { INIT, STARTING, READY, EOLS, EOR, STOP, ERROR, NORUN };
     friend std::ostream& operator<< (std::ostream& os, const RunDirectoryObserver::State state);
 
 
