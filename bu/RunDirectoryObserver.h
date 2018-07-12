@@ -54,6 +54,10 @@ struct RunDirectoryObserver {
 
     const std::string& getError() const;
 
+    // Sets error message and goes to ERROR state
+    // is unsafe
+    //void setError(const std::string& errorMessage);
+
     void run();
 
     void main();

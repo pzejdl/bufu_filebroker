@@ -37,6 +37,10 @@ public:
     // Return the error message for a particular run
     const std::string& getError(int runNumber);
 
+    // Set ERROR state and error message for particular run
+    // is unsafe
+    //void setError(int runNumber, const std::string& errorMessage);
+
     // FIXME: This will create a resource leak
     void restartRunDirectoryObserver(int runNumber);
 

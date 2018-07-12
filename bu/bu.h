@@ -21,7 +21,9 @@ namespace bu {
         }
     };
 
-    fs::path getRunDirectory(int runNumber);
+    const fs::path getRunDirectory(int runNumber);
+    const std::string& getIndexFilePrefix();
+
 
     typedef std::vector<bu::FileInfo> files_t;
     

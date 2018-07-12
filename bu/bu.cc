@@ -12,12 +12,18 @@ namespace fs = boost::filesystem;
 
 /* Temporarily put here, but probably make configurable */
 static const fs::path baseDirectory = "/fff/ramdisk";
+static const std::string indexFilePrefix = "fu/";
 
-fs::path bu::getRunDirectory(int runNumber) {
+const fs::path bu::getRunDirectory(int runNumber) {
     return baseDirectory / ("run" + std::to_string(runNumber)); 
 }
 
-#include <boost/exception/diagnostic_information.hpp> 
+const std::string& bu::getIndexFilePrefix() {
+    return indexFilePrefix;
+}
+
+
+//#include <boost/exception/diagnostic_information.hpp> 
 
 
 /* 

@@ -108,6 +108,12 @@ const std::string& RunDirectoryManager::getError(int runNumber) {
 }
 
 
+// void RunDirectoryManager::setError(int runNumber, const std::string& errorMessage) {
+//     RunDirectoryObserverPtr observer = getRunDirectoryObserver( runNumber );
+//     observer->setError( errorMessage );
+// }
+
+
 void RunDirectoryManager::restartRunDirectoryObserver(int runNumber) 
 {
      createRunDirectoryObserver( runNumber );

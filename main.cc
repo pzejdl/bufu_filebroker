@@ -6,6 +6,8 @@
 #include "bu/RunDirectoryManager.h"
 #include "http/server/server.hpp"
 
+#include "tools/log.h"
+
 #include "config.h"
 
 //namespace fs = boost::filesystem;
@@ -26,6 +28,52 @@
 bu::RunDirectoryManager runDirectoryManager;
 
 /*****************************************************************************/
+
+
+/*
+ * This will rename the index file based on filePrefix variable and if necessary create output directory specified in filePrefix.
+ */
+void renameIndexFile(int runNumber, const std::string& filePrefix, const std::string& fileName)
+{
+    const fs::path runDirectoryPath = bu::getRunDirectory( runNumber ); 
+    const fs::path fileFrom = runDirectoryPath / fileName;
+    const fs::path fileTo = runDirectoryPath / ( filePrefix + fileName );
+    bool retry = false;
+    do {
+        try {
+            fs::rename( fileFrom, fileTo );
+            if (retry) {
+                LOG(DEBUG) << "Index file rename was succesfull.";
+            }
+            break;
+        }
+        catch (fs::filesystem_error& e) {
+            if (e.code() == boost::system::errc::no_such_file_or_directory) {
+                if (!retry) {
+                    const fs::path fuPath = runDirectoryPath / filePrefix;
+                    LOG(DEBUG) << "Index file rename failed, probably the directory for renamed files is missing, trying to create it: " << fuPath << '.';
+                    try {
+                        fs::create_directory( fuPath );
+                        LOG(DEBUG) << "Directory was created.";
+                        retry = true;
+                        continue;
+                    }
+                    catch (fs::filesystem_error& e) {
+                        LOG(ERROR) << "Creating directory " << fuPath << " failed.";
+                    }
+                } 
+            }
+
+            // Changing global state for the ERROR in thread unsafe. So for the moment we just abort.
+            //runDirectoryManager.setError( runNumber, e.what() );
+
+            std::string errorStr { "Index file rename failed: " };
+            errorStr += e.what(); 
+            LOG(FATAL) << errorStr << '.';
+            RETHROW( std::runtime_error, errorStr );
+        }
+    } while (retry);
+}
 
 
 unsigned long getParamUL(const http::server::request& req, const std::string& key, bool isOptional = false, unsigned long defaultValue = -1)
@@ -53,55 +101,13 @@ unsigned long getParamUL(const http::server::request& req, const std::string& ke
 
 #include <boost/chrono/io/time_point_io.hpp>
 #include <boost/chrono/chrono.hpp>
+	
 
 /*
  * The web application(s) are defined here
  */
 void createWebApplications(http::server::request_handler& app)
 {
-    app.add("/index.html",
-    [](const http::server::request& req, http::server::reply& rep)
-    {
-        (void)req;
-        rep.content_type = "text/html";
-
-        std::time_t time = std::time(nullptr);
-
-        std::ostringstream os;
-        os  << "<html>\n"
-            << "<head><title>BUFU File Server</title></head>\n"
-            << "<body>\n"
-            << "<h1>BUFU File Server is alive!</h1>\n"
-            << "<p>v" BUFU_FILESERVER_VERSION "</p>\n"
-            << "<p>" << std::asctime(std::localtime( &time )) << "</p>\n"
-            << "</body>\n"
-            << "</html>\n";
-
-        rep.content = os.str();
-    });
-
-
-    app.add("/restart",
-    [](const http::server::request& req, http::server::reply& rep)
-    {
-        rep.content_type = "text/plain";
-        rep.content.append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
-
-        int runNumber;
-        try {
-            runNumber = getParamUL(req, "runnumber");
-        }
-        catch (std::logic_error& e) {
-            rep.content.append(e.what());
-            rep.status = http::server::reply::bad_request;
-            return;
-        }
-    
-        runDirectoryManager.restartRunDirectoryObserver( runNumber );
-        rep.content.append( runDirectoryManager.getStats(runNumber) );
-    });
-
-
     app.add("/popfile",
     [](const http::server::request& req, http::server::reply& rep)
     {
@@ -123,11 +129,17 @@ void createWebApplications(http::server::request_handler& app)
 
         // Get file
         std::ostringstream os;
+        const std::string filePrefix = bu::getIndexFilePrefix();
         bu::FileInfo file;
         bu::RunDirectoryObserver::State state;
         int lastEoLS;
 
         std::tie( file, state, lastEoLS ) = runDirectoryManager.popRunFile( runNumber, stopLS );
+
+        // Rename the file before it is given to FU
+        if (file.type != bu::FileInfo::FileType::EMPTY) { 
+            renameIndexFile( runNumber, filePrefix, file.fileName() + ".jsn" );
+	    }
 
         os << "runnumber="  << runNumber << '\n';
         os << "state="      << state << '\n';
@@ -137,8 +149,9 @@ void createWebApplications(http::server::request_handler& app)
         }
 
         if (file.type != bu::FileInfo::FileType::EMPTY) { 
-            assert( (uint32_t)runNumber == file.runNumber);
-            os << "file=\""         << file.fileName()<< "\"\n";
+            assert( (uint32_t)runNumber == file.runNumber );
+            os << "file=\""         << file.fileName() << "\"\n";
+            os << "fileprefix=\""   << filePrefix << "\"\n";
             os << "lumisection="    << file.lumiSection << '\n';
             os << "index="          << file.index << '\n';
         } else { 
@@ -225,7 +238,50 @@ void createWebApplications(http::server::request_handler& app)
         rep.content.append( "</pre>\n" );
         rep.content.append( "</body>\n" );
         rep.content.append( "</html>\n" );
-    });               
+    });        
+
+
+    app.add("/index.html",
+    [](const http::server::request& req, http::server::reply& rep)
+    {
+        (void)req;
+        rep.content_type = "text/html";
+
+        std::time_t time = std::time(nullptr);
+
+        std::ostringstream os;
+        os  << "<html>\n"
+            << "<head><title>BUFU File Server</title></head>\n"
+            << "<body>\n"
+            << "<h1>BUFU File Server is alive!</h1>\n"
+            << "<p>v" BUFU_FILESERVER_VERSION "</p>\n"
+            << "<p>" << std::asctime(std::localtime( &time )) << "</p>\n"
+            << "</body>\n"
+            << "</html>\n";
+
+        rep.content = os.str();
+    });
+
+
+    app.add("/restart",
+    [](const http::server::request& req, http::server::reply& rep)
+    {
+        rep.content_type = "text/plain";
+        rep.content.append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
+
+        int runNumber;
+        try {
+            runNumber = getParamUL(req, "runnumber");
+        }
+        catch (std::logic_error& e) {
+            rep.content.append(e.what());
+            rep.status = http::server::reply::bad_request;
+            return;
+        }
+    
+        runDirectoryManager.restartRunDirectoryObserver( runNumber );
+        rep.content.append( runDirectoryManager.getStats(runNumber) );
+    });
 }
 
 
@@ -251,7 +307,7 @@ void server()
         std::cout << "Server: HTTP Finished" << std::endl;
     }
     catch(const std::exception& e) {
-        BACKTRACE_AND_RETHROW( std::runtime_error, "Unhandled exception detected." );
+        BACKTRACE_AND_RETHROW( std::runtime_error, "Exception detected." );
     }
 }
 
@@ -274,7 +330,7 @@ int main()
         std::cout << "Error: " << e.code() << " - " << e.what() << '\n';
     }
     catch(const std::exception& e) {
-        BACKTRACE_AND_RETHROW( std::runtime_error, "Unhandled exception detected." );
+        BACKTRACE_AND_RETHROW( std::runtime_error, "Exception detected." );
     }
 
     std::cout << "main finished." << std::endl;
