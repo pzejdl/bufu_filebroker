@@ -1,6 +1,8 @@
 #pragma once
 
 #include <iostream>
+#include <sstream>
+#include <mutex>
 
 #include "tools/exception.h"    // For TOOLS_DEBUG_INFO
 /*
@@ -25,8 +27,8 @@ enum LOG_LEVEL {
 namespace tools {
 namespace log {
 
-
-std::ostream& operator<< (std::ostream& os, enum LOG_LEVEL severity)
+// inline before moved somewhere else
+inline std::ostream& operator<< (std::ostream& os, enum LOG_LEVEL severity)
 {
     switch (severity)
     {
@@ -51,7 +53,7 @@ struct log {
 
     ~log() {
         std::lock_guard<std::mutex> guard(lock);
-        std::cerr << os.str() << std::endl;
+        std::cout << os.str() << std::endl;
     }
 
 public:

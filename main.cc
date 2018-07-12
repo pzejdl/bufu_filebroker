@@ -138,8 +138,9 @@ void createWebApplications(http::server::request_handler& app)
 
         // Rename the file before it is given to FU
         if (file.type != bu::FileInfo::FileType::EMPTY) { 
-            renameIndexFile( runNumber, filePrefix, file.fileName() + ".jsn" );
-	    }
+            // TODO: Make it optional
+            //renameIndexFile( runNumber, filePrefix, file.fileName() + ".jsn" );
+        }
 
         os << "runnumber="  << runNumber << '\n';
         os << "state="      << state << '\n';
@@ -285,31 +286,19 @@ void createWebApplications(http::server::request_handler& app)
 }
 
 
-void server()
+void server(http::server::server& s)
 {
-    THREAD_DEBUG();
+    LOG(INFO) << TOOLS_THREAD_INFO();
     try {
-        std::string address = "0.0.0.0";
-        std::string port = "8080";
-        std::string docRoot = "/fff/ramdisk"; 
-
-        // Initialise the server.
-        http::server::server s(address, port, docRoot, /*debug_http_requests*/ false);
-
-        // Add handlers
-        createWebApplications( s.request_handler() );
-
-        std::cout << "Server: Starting HTTP server at " << address << ':' << port << docRoot << std::endl;
-
         // Run the server until stopped.
         s.run();
-
-        std::cout << "Server: HTTP Finished" << std::endl;
+        LOG(INFO) << "Server: HTTP Service IO Thread Finished";
     }
     catch(const std::exception& e) {
         BACKTRACE_AND_RETHROW( std::runtime_error, "Exception detected." );
     }
 }
+
 
 /*
  * This is the main function where everything start and should end... :)
@@ -320,20 +309,35 @@ int main()
     //int runNumber = 1000030354;
     //int runNumber = 615052;
 
-    std::cout << "BUFU-FileServer v" << BUFU_FILESERVER_VERSION << std::endl;
+    LOG(INFO) << "BUFU-FileServer v" << BUFU_FILESERVER_VERSION;
+
+    std::string address = "0.0.0.0";
+    std::string port = "8080";
+    std::string docRoot = "/fff/ramdisk"; 
+
+    // Initialise the server.
+    http::server::server s(address, port, docRoot, /*debug_http_requests*/ false);
+
+    // Add handlers
+    createWebApplications( s.request_handler() );
+
+    LOG(INFO) << "Server: Starting HTTP server at " << address << ':' << port << docRoot;
 
     try {
-        std::thread server( ::server );
-        server.join();
+        std::thread server1( ::server, std::ref(s) );
+        std::thread server2( ::server, std::ref(s) );
+
+        server1.join();
+        server2.join();
     }
     catch (const std::system_error& e) {
-        std::cout << "Error: " << e.code() << " - " << e.what() << '\n';
+        LOG(ERROR) << "Error: " << e.code() << " - " << e.what();
     }
     catch(const std::exception& e) {
         BACKTRACE_AND_RETHROW( std::runtime_error, "Exception detected." );
     }
 
-    std::cout << "main finished." << std::endl;
+    LOG(INFO) << "main finished.";
     return 0;
 }
 

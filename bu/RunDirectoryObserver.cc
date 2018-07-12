@@ -3,6 +3,7 @@
 #include "tools/synchronized/queue.h"
 #include "tools/inotify/INotify.h"
 #include "tools/tools.h"
+#include "tools/log.h"
 #include "bu/FileInfo.h"
 #include "bu/RunDirectoryObserver.h"
 
@@ -13,7 +14,7 @@ RunDirectoryObserver::RunDirectoryObserver(int runNumber) : runNumber(runNumber)
 
 RunDirectoryObserver::~RunDirectoryObserver()
 {
-    std::cout << "DEBUG: RunDirectoryObserver::~RunDirectoryObserver()." << std::endl;
+    LOG(DEBUG) << "RunDirectoryObserver::~RunDirectoryObserver().";
 }
 
 
@@ -163,7 +164,7 @@ void RunDirectoryObserver::optimizeAndPushFiles(const bu::files_t& files)
  */
 void RunDirectoryObserver::main()
 {
-    THREAD_DEBUG();
+    LOG(INFO) << TOOLS_THREAD_INFO();
 
     /*
      * .jsn file filter definition
@@ -179,7 +180,7 @@ void RunDirectoryObserver::main()
 
 
     const std::string runDirectoryPath = bu::getRunDirectory( runNumber ).string(); 
-    std::cout << "DirectoryObserver: Watching: " << runDirectoryPath << std::endl;
+    LOG(INFO) << "DirectoryObserver: Watching: " << runDirectoryPath;
 
     /**************************************************************************
      * PHASE I - Startup: Inotify is started and the run directory is searched for existing .jsn files
@@ -201,25 +202,25 @@ void RunDirectoryObserver::main()
             stats.fu.state = bu::RunDirectoryObserver::State::ERROR;
         }
         errorMessage = e.what();
-        std::cout << "DirectoryObserver: ERROR: \"" << errorMessage << "\", error code: " << e.code() << std::endl;
-        std::cout << "DirectoryObserver: Finished" << std::endl;
+        LOG(ERROR) << "DirectoryObserver: ERROR: \"" << errorMessage << "\", error code: " << e.code();
+        LOG(INFO)  << "DirectoryObserver: Finished";
         return;
     }
-    std::cout << "DirectoryObserver: INotify started." << std::endl;
+    LOG(DEBUG) << "DirectoryObserver: INotify started.";
 
     //sleep(5);
 
     // List files in the run directory
     bu::files_t files = bu::listFilesInRunDirectory( runDirectoryPath, fileFilter );
     stats.startup.nbJsnFiles = files.size();
-    std::cout << "DirectoryObserver: Found " << files.size() << " files in run directory." << std::endl;
+    LOG(DEBUG) << "DirectoryObserver: Found " << files.size() << " files in run directory.";
 
     //sleep(5);
 
     // Now, we have to read the first batch events from INotify. 
     // And we have to make sure they are not the same we obtained in listing the run directory before.
     if ( inotify.hasEvent() ) {
-        std::cout << "DirectoryObserver: INotify has something." << std::endl;
+        LOG(DEBUG) << "DirectoryObserver: INotify has something.";
         
         for (auto&& event : inotify.read()) {
             stats.startup.inotify.nbAllFiles++;
@@ -239,8 +240,8 @@ void RunDirectoryObserver::main()
         }
     }
 
-    std::cout << "DirectoryObserver statistics:" << std::endl;
-    std::cout << getStats();
+    LOG(DEBUG) << "DirectoryObserver statistics:\n" 
+        << getStats();
 
     // Sort the files according LS and INDEX numbers
     std::sort(files.begin(), files.end());
@@ -267,7 +268,7 @@ void RunDirectoryObserver::main()
             stats.inotify.nbAllFiles++;
 
             //TODO: Make it optional
-            std::cout << "DEBUG INOTIFY: " << event.name << std::endl;
+            LOG(DEBUG) << "INOTIFY: " << event.name;
 
             if ( boost::regex_match( event.name, fileFilter) ) {
                 bu::FileInfo file = bu::temporary::parseFileName( event.name.c_str() );
@@ -283,7 +284,7 @@ void RunDirectoryObserver::main()
     }
 
     // Hola, finito!
-    std::cout << "DirectoryObserver: Finished" << std::endl;
+    LOG(INFO) << "DirectoryObserver: Finished";
     stats.run.state = bu::RunDirectoryObserver::State::STOP;
 }
 

@@ -15,14 +15,17 @@
 //#include <iostream>
 /*
  * Priniting thread TID for debugging
- * NOTE/TODO: When printing to standard output a locking would be better 
- * TODO: Make it more c++ style and encapsulate, so it is printed automatically
+ * TODO: Replace + with a variadic template function for arguments merging
  */
-#define THREAD_DEBUG() (printf("Thread ID = %u, function: '%s'\n", tools::gettid(), __PRETTY_FUNCTION__))
+//#define THREAD_DEBUG() (printf("Thread ID = %u, function: '%s'\n", tools::gettid(), __PRETTY_FUNCTION__))
+#define TOOLS_THREAD_INFO() ((std::string)("Thread ID = " + std::to_string(tools::gettid()) + ", function: '" + __PRETTY_FUNCTION__))
+
 
 #include <chrono>
 
 namespace tools {
+
+
 
 /*
  * Return current thread ID (TID)

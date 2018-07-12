@@ -1,6 +1,7 @@
 // #include <thread>
 // #include <unordered_map>
 
+#include "tools/log.h"
 #include "bu/RunDirectoryManager.h"
 
 // #include "bu/RunDirectoryObserver.h"
@@ -161,7 +162,7 @@ RunDirectoryObserverPtr RunDirectoryManager::createRunDirectoryObserver(int runN
 
         // FIXME: Just to allow restart, we remove any existing runObserver from the map. Obviously, this is creating a memory leak!!!
         if (runDirectoryObservers_.erase( runNumber ) > 0) {
-            std::cout << "DEBUG: runDirectoryObserver erased for runNumber: " << runNumber << std::endl;
+            LOG(DEBUG) << "runDirectoryObserver erased for runNumber: " << runNumber;
         }
 
         // Constructs a new runDirectoryObserver directly in the map directly
@@ -175,7 +176,7 @@ RunDirectoryObserverPtr RunDirectoryManager::createRunDirectoryObserver(int runN
     
     lock.unlock();
 
-    std::cout << "DEBUG: runDirectoryObserver created for runNumber: " << iter->first << std::endl;
+    LOG(DEBUG) << "runDirectoryObserver created for runNumber: " << iter->first;
 
     //TODO: observer.start();
     startRunner(observer);
