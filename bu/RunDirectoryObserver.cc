@@ -61,13 +61,21 @@ const std::string& RunDirectoryObserver::getError() const
 }
 
 
+// void RunDirectoryObserver::setError(const std::string& errorMessage)
+// {
+//     stats.run.state = bu::RunDirectoryObserver::State::ERROR;
+//     stats.fu.state = bu::RunDirectoryObserver::State::ERROR;
+//     this->errorMessage = errorMessage;
+// }
+
+
 void RunDirectoryObserver::run()
 {
     try {
         main();
     }
     catch(const std::exception& e) {
-        BACKTRACE_AND_RETHROW( std::runtime_error, "Unhandled exception detected." );
+        BACKTRACE_AND_RETHROW( std::runtime_error, "Exception detected." );
     } 
 }
 
@@ -259,7 +267,7 @@ void RunDirectoryObserver::main()
             stats.inotify.nbAllFiles++;
 
             //TODO: Make it optional
-            //std::cout << "DEBUG INOTIFY: " << event.name << std::endl;
+            std::cout << "DEBUG INOTIFY: " << event.name << std::endl;
 
             if ( boost::regex_match( event.name, fileFilter) ) {
                 bu::FileInfo file = bu::temporary::parseFileName( event.name.c_str() );
