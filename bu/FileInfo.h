@@ -32,7 +32,7 @@ namespace bu {
         FileInfo(uint32_t runNumber, uint32_t lumiSection, uint32_t index)
             : runNumber(runNumber), lumiSection(lumiSection), index(index), type(FileType::INDEX) {}
 
-        // Create a meta file
+        // Create a run meta file (EoLS or EoR)
         FileInfo(uint32_t runNumber, uint32_t lumiSection, FileType type)
             : runNumber(runNumber), lumiSection(lumiSection), index(0), type(type) {}    
 

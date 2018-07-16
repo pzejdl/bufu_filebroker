@@ -54,6 +54,8 @@ void renameIndexFile(int runNumber, const std::string& filePrefix, const std::st
                     LOG(DEBUG) << "Index file rename failed, probably the directory for renamed files is missing, trying to create it: " << fuPath << '.';
                     try {
                         fs::create_directory( fuPath );
+                        // TODO: fix this with boost properly
+                        chmod( fuPath.string().c_str(), 0777 );
                         LOG(DEBUG) << "Directory was created.";
                         retry = true;
                         continue;
@@ -139,7 +141,7 @@ void createWebApplications(http::server::request_handler& app)
         // Rename the file before it is given to FU
         if (file.type != bu::FileInfo::FileType::EMPTY) { 
             // TODO: Make it optional
-            //renameIndexFile( runNumber, filePrefix, file.fileName() + ".jsn" );
+            renameIndexFile( runNumber, filePrefix, file.fileName() + ".jsn" );
         }
 
         os << "runnumber="  << runNumber << '\n';
@@ -325,10 +327,10 @@ int main()
 
     try {
         std::thread server1( ::server, std::ref(s) );
-        std::thread server2( ::server, std::ref(s) );
+        //std::thread server2( ::server, std::ref(s) );
 
         server1.join();
-        server2.join();
+        //server2.join();
     }
     catch (const std::system_error& e) {
         LOG(ERROR) << "Error: " << e.code() << " - " << e.what();

@@ -268,11 +268,12 @@ void RunDirectoryObserver::main()
             stats.inotify.nbAllFiles++;
 
             //TODO: Make it optional
-            LOG(DEBUG) << "INOTIFY: " << event.name;
+            //LOG(DEBUG) << "INOTIFY: " << event.name;
 
             if ( boost::regex_match( event.name, fileFilter) ) {
                 bu::FileInfo file = bu::temporary::parseFileName( event.name.c_str() );
                 stats.inotify.nbJsnFiles++;
+                updateRunDirectoryStats( file );
                 pushFile( std::move(file) );
             }
         }
