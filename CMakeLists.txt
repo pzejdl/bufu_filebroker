@@ -9,13 +9,14 @@ set (BUFU_FILESERVER_VERSION "\"0.4\"")
 set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wextra -rdynamic -O0 -g")
 
 # Sets the version we have
-set(Boost_ADDITIONAL_VERSIONS "1.53")
+#set(Boost_ADDITIONAL_VERSIONS "1.53")
+set(BOOST_ROOT /opt/bufu_fileserver/boost)
 
 # Requires multithreaded librariesg
 set(Boost_USE_MULTITHREADED ON)
 
 # Automatically finds boost
-find_package(Boost 1.53 REQUIRED COMPONENTS system filesystem regex chrono)
+find_package(Boost 1.67 REQUIRED COMPONENTS system filesystem regex chrono)
 
 # Using pthread
 find_package(Threads REQUIRED)
