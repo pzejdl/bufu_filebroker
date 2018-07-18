@@ -235,6 +235,7 @@ void RunDirectoryObserver::main()
                     files.push_back( std::move( file ));
                 } else {
                     stats.startup.inotify.nbJsnFilesDuplicated++;
+                    LOG(DEBUG) << "Duplicate: " << file.fileName();
                 }
             }
         }
@@ -245,6 +246,11 @@ void RunDirectoryObserver::main()
 
     // Sort the files according LS and INDEX numbers
     std::sort(files.begin(), files.end());
+
+    // LOG(DEBUG) << "Dumping the content of the queue:";
+    // for (const auto& file: files) {
+    //     LOG(DEBUG) << file.fileName();
+    // }
 
     /**************************************************************************
      * PHASE II - Optimize: Determine the first usable .jsn file (and skip empty lumisections)
