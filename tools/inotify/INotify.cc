@@ -62,7 +62,7 @@ tools::INotify::Events_t tools::INotify::read()
        the inotify file descriptor should have the same alignment as
        struct inotify_event. */
 
-    char buf[40960]
+    char buf[32768]
         __attribute__((aligned(__alignof__(struct inotify_event))));
     const struct inotify_event* event;
     ssize_t len;
