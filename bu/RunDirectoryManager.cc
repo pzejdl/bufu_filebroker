@@ -148,8 +148,8 @@ void RunDirectoryManager::startRunner(const RunDirectoryObserverPtr& observer) c
 {
     assert( observer->stats.run.state == RunDirectoryObserver::State::INIT );
 
-    observer->runner = std::thread(&RunDirectoryObserver::run, observer);
-    observer->runner.detach();
+    observer->runnerThread = std::thread(&RunDirectoryObserver::run, observer);
+    observer->runnerThread.detach();
     observer->stats.run.state = RunDirectoryObserver::State::STARTING;
     observer->stats.fu.state = RunDirectoryObserver::State::STARTING;
 }

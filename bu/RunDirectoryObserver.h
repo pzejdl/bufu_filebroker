@@ -60,7 +60,7 @@ struct RunDirectoryObserver {
 
     void run();
 
-    void main();
+    void runner();
 
     void pushFile(bu::FileInfo file);
     //void updateStats(const bu::FileInfo& file, bool updateFU);
@@ -77,13 +77,14 @@ struct RunDirectoryObserver {
 
     //std::atomic<State> state { State::INIT };
     std::atomic<bool> running { true };
-    std::thread runner;
+    std::thread runnerThread;
 
     struct Statistics {
         struct Inotify {
-            uint32_t nbAllFiles = 0;                    // Number of all files INotify saw
+            uint32_t nbInotifyReadCalls = 0;            // Number of read calls executed for reading inotify events 
+            uint32_t nbAllFiles = 0;                    // Number of all files inotify saw
             uint32_t nbJsnFiles = 0;                    // Number of proper .jsn files (after applying a filter to all files)
-            uint32_t nbJsnFilesDuplicated = 0;          // Number of duplicated .jsn files received from Inotify
+            uint32_t nbJsnFilesDuplicated = 0;          // Number of duplicated .jsn files received from inotify
         };
 
         struct Startup {

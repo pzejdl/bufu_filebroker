@@ -26,10 +26,12 @@ std::string RunDirectoryObserver::getStats() const
     os << "runNumber="                                      << runNumber << '\n';
     os << sep << "startup.nbJsnFiles="                      << stats.startup.nbJsnFiles << '\n';
     os << sep << "startup.nbJsnFilesOptimized="             << stats.startup.nbJsnFilesOptimized << '\n';
+    os << sep << "startup.inotify.nbInotifyReadCalls="      << stats.startup.inotify.nbInotifyReadCalls << '\n';
     os << sep << "startup.inotify.nbAllFiles="              << stats.startup.inotify.nbAllFiles << '\n';
     os << sep << "startup.inotify.nbJsnFiles="              << stats.startup.inotify.nbJsnFiles << '\n';
     os << sep << "startup.inotify.nbJsnFilesDuplicated="    << stats.startup.inotify.nbJsnFilesDuplicated << '\n';
     os << '\n';
+    os << sep << "inotify.nbInotifyReadCalls="              << stats.inotify.nbInotifyReadCalls << '\n';
     os << sep << "inotify.nbAllFiles="                      << stats.inotify.nbAllFiles << '\n';
     os << sep << "inotify.nbJsnFiles="                      << stats.inotify.nbJsnFiles << '\n';
     os << '\n';
@@ -73,7 +75,7 @@ const std::string& RunDirectoryObserver::getError() const
 void RunDirectoryObserver::run()
 {
     try {
-        main();
+        runner();
     }
     catch(const std::exception& e) {
         BACKTRACE_AND_RETHROW( std::runtime_error, "Exception detected." );
@@ -162,7 +164,7 @@ void RunDirectoryObserver::optimizeAndPushFiles(const bu::files_t& files)
  * The main function responsible for finding files on BU.
  * Is run in a separate thread for each run directory that FU asks. 
  */
-void RunDirectoryObserver::main()
+void RunDirectoryObserver::runner()
 {
     LOG(INFO) << TOOLS_THREAD_INFO();
 
@@ -219,9 +221,8 @@ void RunDirectoryObserver::main()
 
     // Now, we have to read the first batch events from INotify. 
     // And we have to make sure they are not the same we obtained in listing the run directory before.
-    int inotifyCnt = 0;
     while ( inotify.hasEvent() ) {
-        inotifyCnt++;
+        stats.startup.inotify.nbInotifyReadCalls++;
         LOG(DEBUG) << "DirectoryObserver: INotify has something.";
         
         for (auto&& event : inotify.read()) {
@@ -237,13 +238,11 @@ void RunDirectoryObserver::main()
                     files.push_back( std::move( file ));
                 } else {
                     stats.startup.inotify.nbJsnFilesDuplicated++;
-                    LOG(DEBUG) << "Duplicate: " << file.fileName();
+                    LOG(DEBUG) << "Duplicates from inotify: \"" << file.fileName() << '\"';
                 }
             }
         }
     }
-
-    LOG(DEBUG) << "Inotify had to cycle " << inotifyCnt << " times to get all files...";
 
     LOG(DEBUG) << "DirectoryObserver statistics:\n" 
         << getStats();
@@ -287,6 +286,7 @@ void RunDirectoryObserver::main()
                 pushFile( std::move(file) );
             }
         }
+        stats.inotify.nbInotifyReadCalls++;
 
         //std::cout << "DirectoryObserver: Alive" << std::endl;
         //std::cout << "DirectoryObserver statistics:" << std::endl;
