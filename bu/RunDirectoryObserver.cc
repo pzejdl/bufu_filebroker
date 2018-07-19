@@ -219,7 +219,9 @@ void RunDirectoryObserver::main()
 
     // Now, we have to read the first batch events from INotify. 
     // And we have to make sure they are not the same we obtained in listing the run directory before.
-    if ( inotify.hasEvent() ) {
+    int inotifyCnt = 0;
+    while ( inotify.hasEvent() ) {
+        inotifyCnt++;
         LOG(DEBUG) << "DirectoryObserver: INotify has something.";
         
         for (auto&& event : inotify.read()) {
@@ -240,6 +242,8 @@ void RunDirectoryObserver::main()
             }
         }
     }
+
+    LOG(DEBUG) << "Inotify had to cycle " << inotifyCnt << " times to get all files...";
 
     LOG(DEBUG) << "DirectoryObserver statistics:\n" 
         << getStats();
