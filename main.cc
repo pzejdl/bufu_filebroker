@@ -4,7 +4,7 @@
 
 #include "tools/tools.h"
 #include "bu/RunDirectoryManager.h"
-#include "http/1.0/server/server.hpp"
+#include "http/1.1/server/server.hpp"
 
 #include "tools/log.h"
 
@@ -78,11 +78,11 @@ void renameIndexFile(int runNumber, const std::string& filePrefix, const std::st
 }
 
 
-unsigned long getParamUL(const http::server::request& req, const std::string& key, bool isOptional = false, unsigned long defaultValue = -1)
+unsigned long getParamUL(const http_server::request_t& req, const std::string& key, bool isOptional = false, unsigned long defaultValue = -1)
 {
     std::string strValue;
     unsigned long value;
-    if (req.getParam(key, strValue)) {
+    if (req.query(key, strValue)) {
         try {
             value = std::stoul(strValue);
         }
@@ -108,13 +108,13 @@ unsigned long getParamUL(const http::server::request& req, const std::string& ke
 /*
  * The web application(s) are defined here
  */
-void createWebApplications(http::server::request_handler& app)
+void createWebApplications(http_server::request_handler& app)
 {
     app.add("/popfile",
-    [](const http::server::request& req, http::server::reply& rep)
+    [](const http_server::request_t& req, http_server::response_t& res)
     {
-        rep.content_type = "text/plain";
-        rep.content.append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
+        res.set(http::field::content_type, "text/plain");
+        res.body().append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
 
         // Parse query parameters
         int runNumber;
@@ -124,8 +124,8 @@ void createWebApplications(http::server::request_handler& app)
             stopLS      = getParamUL(req, "stopls", /*isOptional*/ true);
         }
         catch (std::logic_error& e) {
-            rep.content.append(e.what());
-            rep.status = http::server::reply::bad_request;
+            res.body().append(e.what());
+            res.result(http::status::bad_request);
             return;
         }
 
@@ -179,77 +179,73 @@ void createWebApplications(http::server::request_handler& app)
             std::cout << "lasteols="        << lastEoLS << std::endl;
         }
 
-        rep.content.append( os.str() );
+        res.body().append( os.str() );
     });
 
 
-    auto getStats = [](const http::server::request& req, http::server::reply& rep)
+    auto getStats = [](const http_server::request_t& req, http_server::response_t& res)
     {
         int runNumber = -1;
         {
             std::string strValue;
             try {
-                if (req.getParam("runnumber", strValue)) {
+                if (req.query("runnumber", strValue)) {
                     runNumber = std::stoul(strValue);
                 }
             }
             catch(const std::exception& e) {
-                rep.content.append( "ERROR: Cannot parse query parameter: '" + strValue + '\'' );
-                rep.status = http::server::reply::bad_request;
+                res.body().append( "ERROR: Cannot parse query parameter: '" + strValue + '\'' );
+                res.result(http::status::bad_request);
                 return;
             }
         }
 
         if (runNumber >= 0) {    
             // Return statistics for one run
-            rep.content.append( runDirectoryManager.getStats(runNumber) );
+            res.body().append( runDirectoryManager.getStats(runNumber) );
         } else {
             // Return statistics for all runs
-            rep.content.append( runDirectoryManager.getStats() );
+            res.body().append( runDirectoryManager.getStats() );
         }
     };
 
 
     app.add("/stats",
-    [getStats](const http::server::request& req, http::server::reply& rep)
+    [getStats](const http_server::request_t& req, http_server::response_t& res)
     {
-        rep.content_type = "text/plain";
-        rep.content.append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
+        res.set(http::field::content_type, "text/plain");
+        res.body().append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
 
-        getStats( req, rep );
+        getStats( req, res );
     });  
 
 
     // HTML version of /stats
     app.add("/html/stats",
-    [getStats](const http::server::request& req, http::server::reply& rep)
+    [getStats](const http_server::request_t& req, http_server::response_t& res)
     {
-        rep.content_type = "text/html";
+        res.body().append( "<html>\n" );
+        res.body().append( "<head>\n" );
+        res.body().append( "<title>BUFU File Server</title>" );
+        res.body().append( "<meta http-equiv=\"refresh\" content=\"1\" />" );
+        res.body().append( "</head>\n" );
+        res.body().append( "<body>\n" );
+        res.body().append( "<pre>\n" );
 
-        rep.content.append( "<html>\n" );
-        rep.content.append( "<head>\n" );
-        rep.content.append( "<title>BUFU File Server</title>" );
-        rep.content.append( "<meta http-equiv=\"refresh\" content=\"1\" />" );
-        rep.content.append( "</head>\n" );
-        rep.content.append( "<body>\n" );
-        rep.content.append( "<pre>\n" );
+        res.body().append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
 
-        rep.content.append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
+        getStats( req, res );
 
-        getStats( req, rep );
-
-        rep.content.append( "</pre>\n" );
-        rep.content.append( "</body>\n" );
-        rep.content.append( "</html>\n" );
+        res.body().append( "</pre>\n" );
+        res.body().append( "</body>\n" );
+        res.body().append( "</html>\n" );
     });        
 
 
     app.add("/index.html",
-    [](const http::server::request& req, http::server::reply& rep)
+    [](const http_server::request_t& req, http_server::response_t& res)
     {
         (void)req;
-        rep.content_type = "text/html";
-
         std::time_t time = std::time(nullptr);
 
         std::ostringstream os;
@@ -262,33 +258,33 @@ void createWebApplications(http::server::request_handler& app)
             << "</body>\n"
             << "</html>\n";
 
-        rep.content = os.str();
+        res.body() = os.str();
     });
 
 
     app.add("/restart",
-    [](const http::server::request& req, http::server::reply& rep)
+    [](const http_server::request_t& req, http_server::response_t& res)
     {
-        rep.content_type = "text/plain";
-        rep.content.append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
+        res.set(http::field::content_type, "text/plain");
+        res.body().append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
 
         int runNumber;
         try {
             runNumber = getParamUL(req, "runnumber");
         }
         catch (std::logic_error& e) {
-            rep.content.append(e.what());
-            rep.status = http::server::reply::bad_request;
+            res.body().append(e.what());
+            res.result(http::status::bad_request);
             return;
         }
     
         runDirectoryManager.restartRunDirectoryObserver( runNumber );
-        rep.content.append( runDirectoryManager.getStats(runNumber) );
+        res.body().append( runDirectoryManager.getStats(runNumber) );
     });
 }
 
 
-void server(http::server::server& s)
+void server(http_server::server& s)
 {
     LOG(INFO) << TOOLS_THREAD_INFO();
     try {
@@ -318,7 +314,7 @@ int main()
     std::string docRoot = "/fff/ramdisk"; 
 
     // Initialise the server.
-    http::server::server s(address, port, docRoot, /*debug_http_requests*/ false);
+    http_server::server s(address, port, docRoot, /*threads*/ 1, /*debug_http_requests*/ false);
 
     // Add handlers
     createWebApplications( s.request_handler() );

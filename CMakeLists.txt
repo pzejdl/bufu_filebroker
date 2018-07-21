@@ -3,7 +3,7 @@
 cmake_minimum_required(VERSION 2.8.10)
 
 project(bufu_fileserver)
-set (BUFU_FILESERVER_VERSION "\"0.41\"")
+set (BUFU_FILESERVER_VERSION "\"0.50\"")
 
 # C++ compiler flags
 set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wextra -rdynamic -O0 -g")
@@ -46,7 +46,7 @@ configure_file (
 )
 
 # TODO: Make a separate Makefile for http server
-set(HTTP_SOURCES http/1.0/server/connection.cpp http/1.0/server/connection_manager.cpp http/1.0/server/mime_types.cpp http/1.0/server/reply.cpp http/1.0/server/request_handler.cpp http/1.0/server/request_parser.cpp http/1.0/server/server.cpp)
+set(HTTP_SOURCES http/1.1/server/request.cpp http/1.1/server/request_handler.cpp http/1.1/server/listener.cpp http/1.1/server/server.cpp)
 
 # Defines the executable
 add_executable(main main.cc bu/RunDirectoryObserver.cc bu/RunDirectoryManager.cc bu/bu.cc tools/inotify/INotify.cc ${HTTP_SOURCES})
