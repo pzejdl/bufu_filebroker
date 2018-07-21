@@ -46,7 +46,7 @@ configure_file (
 )
 
 # TODO: Make a separate Makefile for http server
-set(HTTP_SOURCES http/server/connection.cpp http/server/connection_manager.cpp http/server/mime_types.cpp http/server/reply.cpp http/server/request_handler.cpp http/server/request_parser.cpp http/server/server.cpp)
+set(HTTP_SOURCES http/1.0/server/connection.cpp http/1.0/server/connection_manager.cpp http/1.0/server/mime_types.cpp http/1.0/server/reply.cpp http/1.0/server/request_handler.cpp http/1.0/server/request_parser.cpp http/1.0/server/server.cpp)
 
 # Defines the executable
 add_executable(main main.cc bu/RunDirectoryObserver.cc bu/RunDirectoryManager.cc bu/bu.cc tools/inotify/INotify.cc ${HTTP_SOURCES})

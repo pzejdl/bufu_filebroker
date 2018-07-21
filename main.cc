@@ -4,7 +4,7 @@
 
 #include "tools/tools.h"
 #include "bu/RunDirectoryManager.h"
-#include "http/server/server.hpp"
+#include "http/1.0/server/server.hpp"
 
 #include "tools/log.h"
 
