@@ -1,0 +1,26 @@
+systemd Cheat Sheet
+
+# Control whether service loads on boot
+systemctl enable bufu_filebroker.service
+systemctl disable bufu_filebroker.service
+
+# Manual start and stop
+systemctl start bufu_filebroker.service
+systemctl stop bufu_filebroker.service
+
+# Restarting/reloading
+systemctl daemon-reload # Run if .service file has changed
+systemctl restart bufu_filebroker.service
+
+# See if running, uptime, view latest logs
+systemctl status
+systemctl status bufu_filebroker.service
+
+# See all systemd logs
+journalctl
+
+# Tail logs
+journalctl -f
+
+# Show logs for specific service
+journalctl -u bufu_filebroker.service
