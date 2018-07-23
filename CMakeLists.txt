@@ -3,10 +3,10 @@
 cmake_minimum_required(VERSION 2.8.10)
 
 project(bufu_fileserver)
-set (BUFU_FILESERVER_VERSION "\"0.41\"")
+set (BUFU_FILESERVER_VERSION "\"0.50\"")
 
 # C++ compiler flags
-set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wextra -rdynamic -O0 -g")
+set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wextra -rdynamic -O2 -g")
 
 # TODO: - Static linking doesn't work at the moment
 #       - Check https://stackoverflow.com/questions/35116327/when-g-static-link-pthread-cause-segmentation-fault-why/45271521#45271521 
@@ -46,7 +46,7 @@ configure_file (
 )
 
 # TODO: Make a separate Makefile for http server
-set(HTTP_SOURCES http/server/connection.cpp http/server/connection_manager.cpp http/server/mime_types.cpp http/server/reply.cpp http/server/request_handler.cpp http/server/request_parser.cpp http/server/server.cpp)
+set(HTTP_SOURCES http/1.1/server/request.cpp http/1.1/server/request_handler.cpp http/1.1/server/listener.cpp http/1.1/server/server.cpp)
 
 # Defines the executable
 add_executable(main main.cc bu/RunDirectoryObserver.cc bu/RunDirectoryManager.cc bu/bu.cc tools/inotify/INotify.cc ${HTTP_SOURCES})

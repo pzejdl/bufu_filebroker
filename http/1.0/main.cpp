@@ -33,7 +33,7 @@ int main(int argc, char* argv[])
     http::server::server s(argv[1], argv[2], argv[3]);
 
 
-    s.request_handler().add_handler("/index.html",
+    s.request_handler().add("/index.html",
       [](const http::server::request& req, http::server::reply& rep)
       {
         rep.content_type = "text/html";
@@ -54,7 +54,7 @@ int main(int argc, char* argv[])
       });
 
 
-    s.request_handler().add_handler("/test",
+    s.request_handler().add("/test",
       [](const http::server::request& req, http::server::reply& rep)
       {
         rep.content_type = "text/plain";
@@ -62,7 +62,7 @@ int main(int argc, char* argv[])
       });
 
 
-    s.request_handler().add_handler("/test2",
+    s.request_handler().add("/test2",
       [](const http::server::request& req, http::server::reply& rep)
       {
         rep.content_type = "text/plain";
@@ -70,7 +70,7 @@ int main(int argc, char* argv[])
       });
 
 
-    s.request_handler().add_handler("/test3",
+    s.request_handler().add("/test3",
       [](const http::server::request& req, http::server::reply& rep)
       {
         rep.content_type = "text/plain";
