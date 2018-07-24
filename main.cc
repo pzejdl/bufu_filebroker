@@ -29,6 +29,24 @@ bu::RunDirectoryManager runDirectoryManager;
 
 /*****************************************************************************/
 
+#define EXISTS(b)   (b ? "yes" : "NO !!!")
+
+void diagnoseRenameFailure(const std::string& fileName, const std::string& filePrefix, const fs::path& runDirectoryPath, const fs::path& fileFrom, const fs::path fileTo)
+{
+    LOG(DEBUG) << "---- DIAGNOSE ----";
+    try {
+        LOG(DEBUG) << "fileName         = \"" << fileName << '\"';
+        LOG(DEBUG) << "filePrefix       = \"" << filePrefix << '\"';
+        LOG(DEBUG) << "runDirectoryPath = " << runDirectoryPath << ", exists = " << EXISTS(fs::is_directory(runDirectoryPath));
+        LOG(DEBUG) << "fileFrom         = " << fileFrom << ", exists = " << EXISTS(fs::is_regular_file(fileFrom));
+        LOG(DEBUG) << "fileTo           = " << fileTo;
+        fs::path fuDirectory = fileTo.parent_path();
+        LOG(DEBUG) << "fuDirectory      = " << fuDirectory << ", exists = " << EXISTS(fs::is_directory(fuDirectory));
+    }
+    catch (fs::filesystem_error& e) {
+        LOG(ERROR) << "DIAGNOSE failed with: " << e.what();
+    }
+}
 
 /*
  * This will rename the index file based on filePrefix variable and if necessary create output directory specified in filePrefix.
@@ -72,6 +90,7 @@ void renameIndexFile(int runNumber, const std::string& filePrefix, const std::st
             std::string errorStr { "Index file rename failed: " };
             errorStr += e.what(); 
             LOG(FATAL) << errorStr << '.';
+            diagnoseRenameFailure( fileName, filePrefix, runDirectoryPath, fileFrom, fileTo);
             RETHROW( std::runtime_error, errorStr );
         }
     } while (retry);
