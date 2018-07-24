@@ -244,9 +244,6 @@ void RunDirectoryObserver::runner()
         }
     }
 
-    LOG(DEBUG) << "DirectoryObserver statistics:\n" 
-        << getStats();
-
     // Sort the files according LS and INDEX numbers
     std::sort(files.begin(), files.end());
 
@@ -263,7 +260,17 @@ void RunDirectoryObserver::runner()
 
     // TODO: Check if FUs can start reading earlier...
     // FUs can start reading from our queue NOW
-    stats.fu.state = bu::RunDirectoryObserver::State::READY;
+
+    if ( queue.empty() ) {
+        // If the queue is empty then FU state is the same like the run directory state
+        stats.fu.state = stats.run.state;
+    } else {
+        // If we have some files in the queue then we are ready for requests
+        stats.fu.state = bu::RunDirectoryObserver::State::READY;
+    }
+
+    LOG(DEBUG) << "DirectoryObserver statistics:\n" 
+        << getStats();
 
     /**************************************************************************
      * PHASE III - The main loop: Now, we rely on the Inotify
