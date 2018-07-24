@@ -59,8 +59,19 @@ std::tuple< FileInfo, RunDirectoryObserver::State, int > RunDirectoryManager::po
 
         while (!observer->queue.empty()) {
             file = std::move( observer->queue.front() );
-            observer->updateFUStats( file );
             observer->queue.pop();
+
+            // Consistency check
+            if ( observer->stats.fu.lastPoppedFile.type != FileInfo::FileType::EMPTY && !(observer->stats.fu.lastPoppedFile < file) ) {
+                std::ostringstream os;
+                os  << "Consistency check failed, file order is broken:\n"
+                    << "  Going to give file:            " << file.fileName() << '\n' 
+                    << "  But the last file given to FU: " << observer->stats.fu.lastPoppedFile.fileName();
+                LOG(FATAL) << os.str();
+                THROW( std::runtime_error, os.str() );
+            }
+
+            observer->updateFUStats( file );
 
             // Skip EoLS and EoR
             if (file.type == FileInfo::FileType::EOLS || file.type == FileInfo::FileType::EOR) {

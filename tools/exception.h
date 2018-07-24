@@ -43,10 +43,12 @@
 	// TODO: String contacenation can be done in preprocessor.
 
 	#define THROW(CLASS, ARG, REST...)	\
-		std::cerr << "------------------------------" << std::endl; \
-		std::cerr << "THROWING " TOOLS_STRINGIFY(CLASS) << "( " << TOOLS_TOSTRING(ARG, ## REST) << " );" << " in " << std::string(TOOLS_DEBUG_INFO) << ": Function '" << __PRETTY_FUNCTION__ << '.' << std::endl; \
-		print_stacktrace(); \
+		std::cerr << "--THROWING--------------------" << std::endl; \
+		std::cerr << TOOLS_STRINGIFY(CLASS) << "( " << TOOLS_TOSTRING(ARG, ## REST) << " );" << " in " << std::string(TOOLS_DEBUG_INFO) << ": Function '" << __PRETTY_FUNCTION__ << '.' << std::endl; \
 		throw CLASS( std::string(TOOLS_DEBUG_INFO) + ": Function '" + __PRETTY_FUNCTION__ + "': " + ARG, ## REST );
+
+//		print_stacktrace(); 
+//		throw CLASS( std::string(TOOLS_DEBUG_INFO) + ": Function '" + __PRETTY_FUNCTION__ + "': " + ARG, ## REST );
 
 	#define RETHROW(CLASS, ARG, REST...)	\
 		std::throw_with_nested( CLASS(std::string(TOOLS_DEBUG_INFO) + ": Exception thrown in '" + __PRETTY_FUNCTION__ + "': " + ARG, ## REST) );
@@ -75,8 +77,8 @@ namespace tools {
 			{
 				int status;
 				if (level == 0) {
-					std::cerr << "------------------------------" << std::endl;
-					std::cerr << "EXCEPTION BACKTRACE:" << std::endl;
+					std::cerr << "--EXCEPTION BACKTRACE---------" << std::endl;
+					//std::cerr << "EXCEPTION BACKTRACE:" << std::endl;
 				}
 				std::cerr << std::string(level << 1, ' ') << abi::__cxa_demangle(typeid(e).name(), 0, 0, &status) << " thrown in " << e.what() << '\n';
 				try {

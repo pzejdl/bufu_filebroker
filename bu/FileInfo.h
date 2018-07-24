@@ -67,7 +67,7 @@ namespace bu {
         }
 
         friend std::ostream& operator<<(std::ostream& os, const FileInfo file) {
-            os  << "FIleInfo(" 
+            os  << "FileInfo(" 
                 << "filename='" << file.fileName()
                 << "', runNumber=" << file.runNumber 
                 << ", lumiSection=" << file.lumiSection 
