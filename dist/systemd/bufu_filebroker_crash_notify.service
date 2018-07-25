@@ -1,10 +1,11 @@
 [Unit]
 Description=Crash Noftifier for BUFU FileName Broker Server Service
 Wants=network-online.target nfs.service
+After=hltd.service network.service nfs.service rsyslog.service
+
 
 [Service]
 Type=oneshot
 #User=notspecified
-#WorkingDirectory=/cmsnfsscratch/globalscratch/pzejdl/bufu_filebroker
-#ExecStart=/cmsnfsscratch/globalscratch/pzejdl/bufu_filebroker/scripts/crash_notify.sh %I "Hostname: %H" "Machine ID: %m" "Boot ID: %b"
-ExecStart=/cmsnfsscratch/globalscratch/pzejdl/bufu_filebroker/scripts/crash_notify.sh
+WorkingDirectory=/opt/bufu_filebroker/scripts
+ExecStart=/opt/bufu_filebroker/scripts/crash_notify.sh

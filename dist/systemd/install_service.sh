@@ -2,7 +2,7 @@
 SERVICE1="bufu_filebroker.service"
 SERVICE2="bufu_filebroker_crash_notify.service"
 
-SOURCE="/globalscratch/pzejdl/bufu_filebroker/systemd/"
+SOURCE="/opt/bufu_filebroker/systemd/"
 TARGET="/usr/lib/systemd/system/"
 
 cp "$SOURCE/$SERVICE1" "$TARGET/$SERVICE1"

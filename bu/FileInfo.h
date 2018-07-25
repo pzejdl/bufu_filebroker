@@ -56,7 +56,7 @@ namespace bu {
                 std::ostringstream os;
                 // From Remi's DiskWriter.cc
                 os << std::setfill('0') <<
-                    "run"<< std::setw(6) << runNumber <<
+                    "run" << std::setw(6) << runNumber <<
                     "_ls" << std::setw(4) << lumiSection <<
                     '_' << type;
                 if (type == FileType::INDEX) {
@@ -66,6 +66,12 @@ namespace bu {
             }
         }
 
+            #define SCORE(o)    ( (uint64_t) ( \
+                                ((uint64_t)(o).lumiSection << 32) | (uint64_t)(o).index | \
+                                ((o).isEoLS() ? 0x0000000080000000 : 0) | \
+                                ((o).isEoR()  ? 0x1000000000000000 : 0) \
+                                ) )
+
         friend std::ostream& operator<<(std::ostream& os, const FileInfo file) {
             os  << "FileInfo(" 
                 << "filename='" << file.fileName()
@@ -73,17 +79,13 @@ namespace bu {
                 << ", lumiSection=" << file.lumiSection 
                 << ", index=" << file.index
                 << ", type=" << file.type
+                //<< ", score=0x" << std::hex << std::setfill('0') << std::setw(16) << SCORE(file) << std::dec
+                //<< ", score=" << SCORE(file)
                 << ')';
             return os;
         }
 
         inline bool operator<(const FileInfo& other) const {
-            #define SCORE(o)    ( (uint64_t) ( \
-                                ((uint64_t)(o).lumiSection << 32) | (uint64_t)(o).index | \
-                                ((o).isEoLS() ? 0x80000000 : 0) | \
-                                ((o).isEoR()  ? 0x8000000000000000 : 0) \
-                                ) )
-
             // It must never happen that we are comparing files with different run numbers 
             assert( runNumber == other.runNumber );
 

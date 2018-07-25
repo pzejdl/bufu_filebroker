@@ -288,6 +288,8 @@ void RunDirectoryObserver::runner()
 
             if ( boost::regex_match( event.name, fileFilter) ) {
                 bu::FileInfo file = bu::temporary::parseFileName( event.name.c_str() );
+                //LOG(DEBUG) << file.fileName();
+
                 stats.inotify.nbJsnFiles++;
                 updateRunDirectoryStats( file );
                 pushFile( std::move(file) );

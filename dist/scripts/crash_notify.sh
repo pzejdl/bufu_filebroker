@@ -7,5 +7,11 @@ LINES="30"
 
 LOG="${LOG_DIR}/$(hostname)--failure.log"
 
-echo "-- START ----------------------------------------------------------------- $(date): $(hostname): $0: bufu_filebroker service failure detected, dumping last $LINES lines of journal:" >> $LOG
-journalctl -n $LINES -u $SERVICE >> $LOG
+MSG="bufu_filebroker: Service failure detected, dumping last $LINES lines of journal:"
+BODY="$(echo "$MSG"; journalctl -n $LINES -u $SERVICE)"
+
+echo "-- START ----------------------------------------------------------------- $(date): $(hostname): $0: $BODY" >> $LOG
+
+## Notify F3Mon
+
+echo "$BODY" | /opt/bufu_filebroker/scripts/f3mon_notify.sh --stdin

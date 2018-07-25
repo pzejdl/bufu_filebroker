@@ -7,8 +7,8 @@ OnFailure=bufu_filebroker_crash_notify.service
 [Service]
 Type=forking
 #User=notspecified
-WorkingDirectory=/cmsnfsscratch/globalscratch/pzejdl/bufu_filebroker
-ExecStart=/cmsnfsscratch/globalscratch/pzejdl/bufu_filebroker/bufu_filebroker.sh
+WorkingDirectory=/opt/bufu_filebroker/scripts
+ExecStart=/opt/bufu_filebroker/scripts/bufu_filebroker.sh
 Restart=always
 RestartSec=20
 
