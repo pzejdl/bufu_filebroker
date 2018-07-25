@@ -51,6 +51,7 @@ std::string RunDirectoryObserver::getStats() const
     os << sep << "fu.state="                                << stats.fu.state << '\n';
     os << sep << "fu.lastPoppedFile=\""                     << stats.fu.lastPoppedFile.fileName() << "\"\n";
     os << sep << "fu.lastEoLS="                             << stats.fu.lastEoLS << '\n';
+    os << sep << "fu.currentLS="                            << stats.fu.currentLS << '\n';
     os << sep << "fu.stopLS="                               << stats.fu.stopLS << '\n';
     os << '\n';
 
@@ -148,6 +149,10 @@ void RunDirectoryObserver::optimizeAndPushFiles(const bu::files_t& files)
             stats.startup.nbJsnFilesOptimized++; 
             updateRunDirectoryStats( file );
 
+            // Also have to advance the currentLS for the FU
+            // Note: in case of EOR,the currentLS will be wrong
+            stats.fu.currentLS = file.lumiSection + 1;
+    
             // If we are skipping files, we have to update FU lastEoLS statistics here so it can be correctly reported when FU asks for a file for the first time
             stats.fu.lastEoLS = stats.run.lastEoLS;
             continue;

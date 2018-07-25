@@ -32,7 +32,11 @@ namespace bu {
 // Changed from std::string to bu::FileInfo
 //typedef tools::synchronized::queue<std::string> FileNameQueue_t;
 //typedef tools::synchronized::queue<bu::FileInfo> FileQueue_t;
-typedef std::queue<bu::FileInfo> FileQueue_t;
+//typedef std::queue<bu::FileInfo> FileQueue_t;
+
+
+// TODO: Use a sorted queue that is better for keepeing files...
+typedef std::priority_queue< bu::FileInfo, std::vector<bu::FileInfo>, std::greater<bu::FileInfo> > FileQueue_t;
 
 
 struct RunDirectoryObserver {
@@ -110,7 +114,8 @@ struct RunDirectoryObserver {
             State state { State::INIT };
             FileInfo lastPoppedFile;                    // Last file given to FU
             int lastEoLS = -1;                          // Last EoLS FU saw
-            // TODO: The following counter should be per FU?
+            int currentLS = 1;                          // The current LS that FU(s) are processing
+            // TODO: The following counter should be counted per
             int stopLS = -1;                            // Remembers is stopLS was specified in the request from FU
         } fu;
     } stats;

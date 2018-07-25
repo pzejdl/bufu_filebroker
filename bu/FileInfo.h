@@ -66,11 +66,11 @@ namespace bu {
             }
         }
 
-            #define SCORE(o)    ( (uint64_t) ( \
-                                ((uint64_t)(o).lumiSection << 32) | (uint64_t)(o).index | \
-                                ((o).isEoLS() ? 0x0000000080000000 : 0) | \
-                                ((o).isEoR()  ? 0x1000000000000000 : 0) \
-                                ) )
+        #define SCORE(o)    ( (uint64_t) ( \
+                            ((uint64_t)(o).lumiSection << 32) | (uint64_t)(o).index | \
+                            ((o).isEoLS() ? 0x0000000080000000 : 0) | \
+                            ((o).isEoR()  ? 0x1000000000000000 : 0) \
+                            ) )
 
         friend std::ostream& operator<<(std::ostream& os, const FileInfo file) {
             os  << "FileInfo(" 
@@ -88,10 +88,14 @@ namespace bu {
         inline bool operator<(const FileInfo& other) const {
             // It must never happen that we are comparing files with different run numbers 
             assert( runNumber == other.runNumber );
-
             return SCORE( *this ) < SCORE( other );
         }
 
+        inline bool operator>(const FileInfo& other) const {
+            // It must never happen that we are comparing files with different run numbers 
+            assert( runNumber == other.runNumber );
+            return SCORE( *this ) > SCORE( other );
+        }
 
         // Keeping it aligned to 16 bytes
         uint32_t runNumber;

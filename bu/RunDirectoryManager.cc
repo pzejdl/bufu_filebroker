@@ -26,7 +26,8 @@ bool RunDirectoryManager::isStopLS(const RunDirectoryObserverPtr& observer, int 
         return false;
     
     if (!observer->queue.empty()) {
-        const FileInfo& file = observer->queue.front();
+        //const FileInfo& file = observer->queue.front();
+        const FileInfo& file = observer->queue.top();
         if  ( 
             ( (long)file.lumiSection == stopLS && file.type == FileInfo::FileType::EOLS ) ||
             ( (long)file.lumiSection > stopLS ) 
@@ -58,11 +59,33 @@ std::tuple< FileInfo, RunDirectoryObserver::State, int > RunDirectoryManager::po
         }
 
         while (!observer->queue.empty()) {
-            file = std::move( observer->queue.front() );
+            //file = std::move( observer->queue.front() );
+            const FileInfo& peekFile = observer->queue.top();
+
+            //LOG(DEBUG) << "peekFile=" << peekFile.fileName();
+
+            // Consistency checks
+            if (peekFile.type != FileInfo::FileType::EOR) {
+                assert( (int)peekFile.lumiSection >= observer->stats.fu.lastEoLS );
+                assert( (int)peekFile.lumiSection >= observer->stats.fu.currentLS );
+                assert( (int)peekFile.lumiSection <= observer->stats.fu.currentLS + 1);
+
+                // If the current LS is not closed yet, we keep files in the queue and wait for EoLS
+                if ((int)peekFile.lumiSection > observer->stats.fu.currentLS && observer->stats.fu.lastEoLS < observer->stats.fu.currentLS) {
+                    file.type = FileInfo::FileType::EMPTY;
+                    break;
+                }
+            }
+            
+            //file = std::move( observer->queue.top() );
+            file = std::move( peekFile );
             observer->queue.pop();
 
             // Consistency check
-            if ( observer->stats.fu.lastPoppedFile.type != FileInfo::FileType::EMPTY && !(observer->stats.fu.lastPoppedFile < file) ) {
+            if ( observer->stats.fu.lastPoppedFile.type != FileInfo::FileType::EMPTY &&
+                 file.type != FileInfo::FileType::EOR && 
+                 observer->stats.fu.lastPoppedFile.lumiSection > file.lumiSection ) 
+            {
                 std::ostringstream os;
                 os  << "Consistency check failed, file order is broken:\n"
                     << "  Going to give file:            " << file.fileName() << '\n' 
@@ -71,6 +94,10 @@ std::tuple< FileInfo, RunDirectoryObserver::State, int > RunDirectoryManager::po
                 THROW( std::runtime_error, os.str() );
             }
 
+            if (file.type == FileInfo::FileType::EOLS) {
+                assert( (int)file.lumiSection == observer->stats.fu.currentLS );
+                observer->stats.fu.currentLS++;
+            } 
             observer->updateFUStats( file );
 
             // Skip EoLS and EoR
