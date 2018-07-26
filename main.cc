@@ -133,7 +133,7 @@ void createWebApplications(http_server::request_handler& app)
     [](const http_server::request_t& req, http_server::response_t& res)
     {
         res.set(http::field::content_type, "text/plain");
-        res.body().append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
+        res.body().append("version=\"" BUFU_FILEBROKER_VERSION "\"\n");
 
         // Parse query parameters
         int runNumber;
@@ -233,7 +233,7 @@ void createWebApplications(http_server::request_handler& app)
     [getStats](const http_server::request_t& req, http_server::response_t& res)
     {
         res.set(http::field::content_type, "text/plain");
-        res.body().append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
+        res.body().append("version=\"" BUFU_FILEBROKER_VERSION "\"\n");
 
         getStats( req, res );
     });  
@@ -251,7 +251,7 @@ void createWebApplications(http_server::request_handler& app)
         res.body().append( "<body>\n" );
         res.body().append( "<pre>\n" );
 
-        res.body().append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
+        res.body().append("version=\"" BUFU_FILEBROKER_VERSION "\"\n");
 
         getStats( req, res );
 
@@ -269,10 +269,10 @@ void createWebApplications(http_server::request_handler& app)
 
         std::ostringstream os;
         os  << "<html>\n"
-            << "<head><title>BUFU File Server</title></head>\n"
+            << "<head><title>BUFU File Broker</title></head>\n"
             << "<body>\n"
-            << "<h1>BUFU File Server is alive!</h1>\n"
-            << "<p>v" BUFU_FILESERVER_VERSION "</p>\n"
+            << "<h1>BUFU File Broker is alive!</h1>\n"
+            << "<p>v" BUFU_FILEBROKER_VERSION "</p>\n"
             << "<p>" << std::asctime(std::localtime( &time )) << "</p>\n"
             << "</body>\n"
             << "</html>\n";
@@ -285,7 +285,7 @@ void createWebApplications(http_server::request_handler& app)
     [](const http_server::request_t& req, http_server::response_t& res)
     {
         res.set(http::field::content_type, "text/plain");
-        res.body().append("version=\"" BUFU_FILESERVER_VERSION "\"\n");
+        res.body().append("version=\"" BUFU_FILEBROKER_VERSION "\"\n");
 
         int runNumber;
         try {
@@ -326,7 +326,7 @@ int main()
     //int runNumber = 1000030354;
     //int runNumber = 615052;
 
-    LOG(INFO) << "BUFU-FileServer v" << BUFU_FILESERVER_VERSION;
+    LOG(INFO) << "BUFU File Broker v" << BUFU_FILEBROKER_VERSION;
 
     std::string address = "0.0.0.0";
     std::string port = "8080";

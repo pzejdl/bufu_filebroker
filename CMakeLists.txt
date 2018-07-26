@@ -2,8 +2,8 @@
 
 cmake_minimum_required(VERSION 2.8.10)
 
-project(bufu_fileserver)
-set (BUFU_FILESERVER_VERSION "\"0.61\"")
+project(bufu_filebroker)
+set (BUFU_FILEBROKER_VERSION "\"0.62\"")
 
 # C++ compiler flags
 set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wextra -rdynamic -O2 -g")
@@ -25,7 +25,7 @@ endif()
 
 # Sets the version we have
 #set(Boost_ADDITIONAL_VERSIONS "1.53")
-set(BOOST_ROOT /opt/bufu_fileserver/boost)
+set(BOOST_ROOT /opt/bufu_filebroker/boost)
 
 # Requires multithreaded librariesg
 set(Boost_USE_MULTITHREADED ON)
@@ -49,17 +49,17 @@ configure_file (
 set(HTTP_SOURCES http/1.1/server/request.cpp http/1.1/server/request_handler.cpp http/1.1/server/listener.cpp http/1.1/server/server.cpp)
 
 # Defines the executable
-add_executable(main main.cc bu/RunDirectoryObserver.cc bu/RunDirectoryManager.cc bu/bu.cc tools/inotify/INotify.cc ${HTTP_SOURCES})
+add_executable(bufu_filebroker main.cc bu/RunDirectoryObserver.cc bu/RunDirectoryManager.cc bu/bu.cc tools/inotify/INotify.cc ${HTTP_SOURCES})
 
 # Add the binary tree to the search path for include files so the config.h can be found
-target_include_directories(main PRIVATE "${PROJECT_BINARY_DIR}")
+target_include_directories(bufu_filebroker PRIVATE "${PROJECT_BINARY_DIR}")
 
 # Specifies include paths
-target_include_directories(main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${Boost_INCLUDE_DIRS})
+target_include_directories(bufu_filebroker PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${Boost_INCLUDE_DIRS})
 
 # Workaround for pthread
-target_compile_options(main PUBLIC "-pthread")
+target_compile_options(bufu_filebroker PUBLIC "-pthread")
 
 # Specifies link paths
-target_link_libraries(main ${Boost_LIBRARIES})
-target_link_libraries(main ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(bufu_filebroker ${Boost_LIBRARIES})
+target_link_libraries(bufu_filebroker ${CMAKE_THREAD_LIBS_INIT})
