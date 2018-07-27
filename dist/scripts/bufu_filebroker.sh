@@ -6,7 +6,7 @@
 ## Configuration
 
 # The service executable
-SERVICE="/opt/bufu_filebroker/bin/main"
+SERVICE="/opt/bufu_filebroker/bin/bufu_filebroker"
 
 # Path to all required libraries
 LIB="/opt/bufu_filebroker/lib"
