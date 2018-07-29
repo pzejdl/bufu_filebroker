@@ -12,6 +12,7 @@
 #include <system_error>
 #include <unistd.h>           // read,close
 
+#include "tools/log.h"
 #include "INotify.h"
 
 
@@ -26,7 +27,7 @@ tools::INotify::INotify()
 
 tools::INotify::~INotify()
 {
-    std::cerr << "INotify: Closing" << std::endl;
+    LOG(DEBUG) << "Closing";
     ::close(fd_);     
 }
 
@@ -72,15 +73,15 @@ tools::INotify::Events_t tools::INotify::read()
 
     /* Read some events. */
 
+    /* If the nonblocking read() found no events to read, then
+           it returns -1 with errno set to EAGAIN. In that case,
+           we exit the loop. */
+
     len = ::read(fd_, buf, sizeof buf);
     if (len == -1 && errno != EAGAIN) {
         perror("read");
         exit(EXIT_FAILURE);
     }
-
-    /* If the nonblocking read() found no events to read, then
-           it returns -1 with errno set to EAGAIN. In that case,
-           we exit the loop. */
 
     if (len <= 0) {
         TODO;

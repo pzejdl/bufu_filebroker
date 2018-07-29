@@ -41,7 +41,7 @@ bool RunDirectoryManager::isStopLS(const RunDirectoryObserverPtr& observer, int 
     return false;
 }
 
-
+// TODO: Move this function to RunDirectoryObserver
 std::tuple< FileInfo, RunDirectoryObserver::State, int > RunDirectoryManager::popRunFile(int runNumber, int stopLS)
 {
     static const FileInfo emptyFile; 
@@ -99,6 +99,16 @@ std::tuple< FileInfo, RunDirectoryObserver::State, int > RunDirectoryManager::po
                 observer->stats.fu.currentLS++;
             } 
             observer->updateFUStats( file );
+
+            // Is EoR then we can free the queue
+            if (file.type == FileInfo::FileType::EOR) {
+                // At this moment the queue has to be empty!
+                assert( observer->queue.empty() );
+
+                // C++11 allows us to move in a new empty queue, as a side effect the memory occupied by the previous is freed...  
+                FileQueue_t tempQueue;
+                observer->queue = std::move( tempQueue );
+            }
 
             // Skip EoLS and EoR
             if (file.type == FileInfo::FileType::EOLS || file.type == FileInfo::FileType::EOR) {

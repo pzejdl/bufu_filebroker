@@ -1,6 +1,7 @@
 #include <thread>
 
 #include "tools/synchronized/queue.h"
+#include "tools/synchronized/barrier.h"
 #include "tools/inotify/INotify.h"
 #include "tools/tools.h"
 #include "tools/log.h"
@@ -172,6 +173,7 @@ void RunDirectoryObserver::optimizeAndPushFiles(const bu::files_t& files)
 void RunDirectoryObserver::runner()
 {
     LOG(INFO) << TOOLS_THREAD_INFO();
+    WRITE_ONCE(isRunning, true);
 
     /*
      * .jsn file filter definition
@@ -274,7 +276,8 @@ void RunDirectoryObserver::runner()
         stats.fu.state = bu::RunDirectoryObserver::State::READY;
     }
 
-    LOG(DEBUG) << "DirectoryObserver statistics:\n" 
+    LOG(DEBUG) 
+        << "DirectoryObserver statistics:\n" 
         << getStats();
 
     /**************************************************************************
@@ -283,7 +286,7 @@ void RunDirectoryObserver::runner()
 
 
     // Process any new file receives through INotify
-    while (running) {
+    while ( ! READ_ONCE(stopRequest) ) {
 
         for (auto&& event : inotify.read()) {
             stats.inotify.nbAllFiles++;
@@ -302,15 +305,19 @@ void RunDirectoryObserver::runner()
         }
         stats.inotify.nbInotifyReadCalls++;
 
-        //std::cout << "DirectoryObserver: Alive" << std::endl;
-        //std::cout << "DirectoryObserver statistics:" << std::endl;
-        //std::cout << getStats();        
-        //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        // If we get EOR then we don't expect any new files to appear and we can stop this thread
+        if ( stats.run.state == bu::RunDirectoryObserver::State::EOR ) {
+            break;
+        }
     }
 
     // Hola, finito!
     LOG(INFO) << "DirectoryObserver: Finished";
-    stats.run.state = bu::RunDirectoryObserver::State::STOP;
+    LOG(DEBUG) 
+        << "DirectoryObserver statistics:\n" 
+        << getStats();
+
+    WRITE_ONCE(isRunning, false);
 }
 
 
@@ -325,7 +332,6 @@ std::ostream& operator<< (std::ostream& os, RunDirectoryObserver::State state)
         case RunDirectoryObserver::State::READY:    return os << "READY";
         case RunDirectoryObserver::State::EOLS:     return os << "EOLS";
         case RunDirectoryObserver::State::EOR:      return os << "EOR";
-        case RunDirectoryObserver::State::STOP:     return os << "STOP";
         case RunDirectoryObserver::State::ERROR:    return os << "ERROR";
         case RunDirectoryObserver::State::NORUN:    return os << "NORUN";
         // Omit default case to trigger compiler warning for missing cases

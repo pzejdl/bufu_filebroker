@@ -3,6 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include <mutex>
+#include <thread>
 
 #include "tools/exception.h"    // For TOOLS_DEBUG_INFO
 /*

@@ -42,7 +42,7 @@ typedef std::priority_queue< bu::FileInfo, std::vector<bu::FileInfo>, std::great
 struct RunDirectoryObserver {
     // Note that this class cannot be copied or moved because of queue
 
-    enum class State { INIT, STARTING, READY, EOLS, EOR, STOP, ERROR, NORUN };
+    enum class State { INIT, STARTING, READY, EOLS, EOR, ERROR, NORUN };
     friend std::ostream& operator<< (std::ostream& os, const RunDirectoryObserver::State state);
 
 
@@ -79,9 +79,9 @@ struct RunDirectoryObserver {
     // This error message is valid only if state is ERROR
     std::string errorMessage;
 
-    //std::atomic<State> state { State::INIT };
-    std::atomic<bool> running { true };
     std::thread runnerThread;
+    std::atomic<bool> isRunning { false };
+    std::atomic<bool> stopRequest { false };
 
     struct Statistics {
         struct Inotify {
