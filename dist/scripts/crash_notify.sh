@@ -1,9 +1,14 @@
 #!/bin/bash
 SERVICE="bufu_filebroker.service"
-LOG_DIR="/cmsnfsscratch/globalscratch/pzejdl/bufu_filebroker/log/"
+LOG_DIR="/cmsnfsscratch/globalscratch/pzejdl/bufu_filebroker/log"
 LINES="30"
 
 ## ----
+if [ ! -d "${LOG_DIR}" ]; then
+    mkdir -p "${LOG_DIR}"
+    chmod 777 "${LOG_DIR}"
+fi
+
 
 LOG="${LOG_DIR}/$(hostname)--failure.log"
 
