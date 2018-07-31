@@ -3,7 +3,7 @@
 cmake_minimum_required(VERSION 2.8.10)
 
 project(bufu_filebroker)
-set (BUFU_FILEBROKER_VERSION "\"0.62.3\"")
+set (BUFU_FILEBROKER_VERSION "\"0.63\"")
 
 # C++ compiler flags
 set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wextra -rdynamic -O2 -g")

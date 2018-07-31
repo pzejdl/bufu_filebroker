@@ -66,15 +66,15 @@ std::tuple< FileInfo, RunDirectoryObserver::State, int > RunDirectoryManager::po
 
             // Consistency checks
             if (peekFile.type != FileInfo::FileType::EOR) {
-                assert( (int)peekFile.lumiSection >= observer->stats.fu.lastEoLS );
-                assert( (int)peekFile.lumiSection >= observer->stats.fu.currentLS );
-                assert( (int)peekFile.lumiSection <= observer->stats.fu.currentLS + 1);
+                assert( (int)peekFile.lumiSection > observer->stats.fu.lastEoLS );
 
-                // If the current LS is not closed yet, we keep files in the queue and wait for EoLS
-                if ((int)peekFile.lumiSection > observer->stats.fu.currentLS && observer->stats.fu.lastEoLS < observer->stats.fu.currentLS) {
+                // If we receive a file for a having larger LS than the expected, we keep it in the queue and wait for EoLS
+                if ((int)peekFile.lumiSection > (observer->stats.fu.lastEoLS + 1)) {
+                    observer->stats.fu.waitForEoLS++;
                     file.type = FileInfo::FileType::EMPTY;
                     break;
                 }
+
             }
             
             //file = std::move( observer->queue.top() );
@@ -94,10 +94,6 @@ std::tuple< FileInfo, RunDirectoryObserver::State, int > RunDirectoryManager::po
                 THROW( std::runtime_error, os.str() );
             }
 
-            if (file.type == FileInfo::FileType::EOLS) {
-                assert( (int)file.lumiSection == observer->stats.fu.currentLS );
-                observer->stats.fu.currentLS++;
-            } 
             observer->updateFUStats( file );
 
             // Is EoR then we can free the queue
