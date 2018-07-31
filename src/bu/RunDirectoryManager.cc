@@ -76,7 +76,6 @@ std::tuple< FileInfo, RunDirectoryObserver::State, int > RunDirectoryManager::po
                     file.type = FileInfo::FileType::EMPTY;
                     break;
                 }
-
             }
             
             //file = std::move( observer->queue.top() );
@@ -84,10 +83,11 @@ std::tuple< FileInfo, RunDirectoryObserver::State, int > RunDirectoryManager::po
             observer->queue.pop();
 
             // Consistency check
-            if ( observer->stats.fu.lastPoppedFile.type != FileInfo::FileType::EMPTY &&
-                 file.type != FileInfo::FileType::EOR && 
-                 observer->stats.fu.lastPoppedFile.lumiSection > file.lumiSection ) 
-            {
+            if ( 
+                observer->stats.fu.lastPoppedFile.lumiSection > file.lumiSection &&
+                observer->stats.fu.lastPoppedFile.type != FileInfo::FileType::EMPTY &&
+                file.type != FileInfo::FileType::EOR
+            ) {
                 std::ostringstream os;
                 os  << "Consistency check failed, file order is broken:\n"
                     << "  Going to give file:            " << file.fileName() << '\n' 

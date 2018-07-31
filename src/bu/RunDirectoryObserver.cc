@@ -42,6 +42,7 @@ std::string RunDirectoryObserver::getStats() const
     os << sep << "errorMessage=\""                          << errorMessage << "\"\n";
     os << '\n';
     os << sep << "run.state="                               << stats.run.state << '\n';
+    os << sep << "run.nbOutOfOrderIndexFiles="              << stats.run.nbOutOfOrderIndexFiles << '\n';
     os << sep << "run.lastProcessedFile=\""                 << stats.run.lastProcessedFile.fileName() << "\"\n";
     os << sep << "run.lastEoLS="                            << stats.run.lastEoLS << '\n';
     os << '\n';
@@ -297,6 +298,16 @@ void RunDirectoryObserver::runner()
                 //LOG(DEBUG) << file.fileName();
 
                 stats.inotify.nbJsnFiles++;
+
+                // Count out of order index files
+                if ( 
+                    stats.run.lastProcessedFile.lumiSection > file.lumiSection &&
+                    stats.run.lastProcessedFile.type == FileInfo::FileType::INDEX &&
+                    file.type == FileInfo::FileType::INDEX 
+                ) {
+                    stats.run.nbOutOfOrderIndexFiles++;
+                }
+
                 updateRunDirectoryStats( file );
                 pushFile( std::move(file) );
             }

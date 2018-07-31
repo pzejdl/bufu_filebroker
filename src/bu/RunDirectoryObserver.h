@@ -104,6 +104,7 @@ struct RunDirectoryObserver {
 
         struct RunDirectory {
             State state { State::INIT };
+            int nbOutOfOrderIndexFiles = 0;             // How many index files were received out of order (lower LS number after higher LS number)
             FileInfo lastProcessedFile;                 // Last processed file
             int lastEoLS = 0;                           // Last EoLS seen in the run directory (the next expected is 1)
         } run;
@@ -116,7 +117,6 @@ struct RunDirectoryObserver {
             int nbEmptyReplies = 0;                     // How many times we had no index file to return
             int nbWaitsForEoLS = 0;                     // How many FU requests were postponed because we received 
             FileInfo lastPoppedFile;                    // Last file given to FU
-//            int nbOutOfOrderLS = 0;                     // How many lumisections were received out of order (lower LS number after higher LS number)
             int lastEoLS = 0;                           // Last EoLS FU saw (the next expected is 1)
             // TODO: The following counter should be counted per FU (maybe)
             int stopLS = -1;                            // Remembers is stopLS was specified in the request from FU
