@@ -50,8 +50,10 @@ std::string RunDirectoryObserver::getStats() const
     os << sep << "queueSize="                               << queue.size() << '\n';
     os << '\n';
     os << sep << "fu.state="                                << stats.fu.state << '\n';
+    os << sep << "fu.nbRequests="                           << stats.fu.nbRequests << '\n';
+    os << sep << "fu.nbEmptyReplies="                       << stats.fu.nbEmptyReplies  << '\n';
+    os << sep << "fu.nbWaitsForEoLS="                       << stats.fu.nbWaitsForEoLS << '\n';
     os << sep << "fu.lastPoppedFile=\""                     << stats.fu.lastPoppedFile.fileName() << "\"\n";
-    os << sep << "fu.waitForEoLS="                          << stats.fu.waitForEoLS << '\n';
     os << sep << "fu.lastEoLS="                             << stats.fu.lastEoLS << '\n';
     os << sep << "fu.stopLS="                               << stats.fu.stopLS << '\n';
     os << '\n';

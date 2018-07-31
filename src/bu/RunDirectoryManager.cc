@@ -45,13 +45,15 @@ bool RunDirectoryManager::isStopLS(const RunDirectoryObserverPtr& observer, int 
 std::tuple< FileInfo, RunDirectoryObserver::State, int > RunDirectoryManager::popRunFile(int runNumber, int stopLS)
 {
     static const FileInfo emptyFile; 
-    FileInfo file;
+    FileInfo file;  // Is empty on construction
     RunDirectoryObserver::State state;
     int lastEoLS;
 
     RunDirectoryObserverPtr observer = getRunDirectoryObserver( runNumber );
     {    
         std::lock_guard<std::mutex> lock(observer->runDirectoryObserverLock);
+
+        observer->stats.fu.nbRequests++;
 
         if (isStopLS(observer, stopLS)) {
             observer->stats.fu.stopLS = stopLS;
@@ -70,7 +72,7 @@ std::tuple< FileInfo, RunDirectoryObserver::State, int > RunDirectoryManager::po
 
                 // If we receive a file for a having larger LS than the expected, we keep it in the queue and wait for EoLS
                 if ((int)peekFile.lumiSection > (observer->stats.fu.lastEoLS + 1)) {
-                    observer->stats.fu.waitForEoLS++;
+                    observer->stats.fu.nbWaitsForEoLS++;
                     file.type = FileInfo::FileType::EMPTY;
                     break;
                 }
@@ -117,6 +119,11 @@ std::tuple< FileInfo, RunDirectoryObserver::State, int > RunDirectoryManager::po
         state = observer->stats.fu.state;
         lastEoLS = observer->stats.fu.lastEoLS;
     }
+
+    if ( file.type == FileInfo::FileType::EMPTY ) {
+        observer->stats.fu.nbEmptyReplies++; 
+    }
+
     return std::make_tuple( file, state, lastEoLS );
 }
 
