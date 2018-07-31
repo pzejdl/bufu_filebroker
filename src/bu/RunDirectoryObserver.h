@@ -104,18 +104,21 @@ struct RunDirectoryObserver {
 
         struct RunDirectory {
             State state { State::INIT };
-            FileInfo lastProcessedFile;                     // Last processed file
-            int lastEoLS = -1;                              // Last EoLS seen in the run directory
+            int nbOutOfOrderIndexFiles = 0;             // How many index files were received out of order (lower LS number after higher LS number)
+            FileInfo lastProcessedFile;                 // Last processed file
+            int lastEoLS = 0;                           // Last EoLS seen in the run directory (the next expected is 1)
         } run;
 
         uint32_t queueSizeMax = 0;                      // The largest queue size ever seen
 
         struct FU {
             State state { State::INIT };
+            int nbRequests = 0;                         // How many requests we got from FUs
+            int nbEmptyReplies = 0;                     // How many times we had no index file to return
+            int nbWaitsForEoLS = 0;                     // How many FU requests were postponed because we received 
             FileInfo lastPoppedFile;                    // Last file given to FU
-            int lastEoLS = -1;                          // Last EoLS FU saw
-            int currentLS = 1;                          // The current LS that FU(s) are processing
-            // TODO: The following counter should be counted per
+            int lastEoLS = 0;                           // Last EoLS FU saw (the next expected is 1)
+            // TODO: The following counter should be counted per FU (maybe)
             int stopLS = -1;                            // Remembers is stopLS was specified in the request from FU
         } fu;
     } stats;
