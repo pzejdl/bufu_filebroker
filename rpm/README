@@ -1,0 +1,4 @@
+* rpm is created manually by `mkrpm.sh` script
+* service scripts are handled according to: https://fedoraproject.org/wiki/Packaging:Scriptlets#Systemd
+
+* TODO: Make a proper rpm through CMake
