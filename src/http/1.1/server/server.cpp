@@ -17,20 +17,6 @@ using tcp = boost::asio::ip::tcp; // from <boost/asio/ip/tcp.hpp>
 
 namespace http_server {
 
-//------------------------------------------------------------------------------
-
-// Report a failure
-void fail(boost::system::error_code ec, char const* what)
-{
-    std::ostringstream os;
-    //std::cerr << "ERROR: " << what << ": " << ec.message() << "\n";
-    os << "HTTPD ERROR: " << what << ": " << ec.message();
-
-    throw std::runtime_error(os.str());
-}
-
-//------------------------------------------------------------------------------
-
 server::server(const std::string& address_str, const std::string& port_str, const std::string& doc_root, int threads, bool debug_http_requests)
     : io_context_(threads)
     , threads_(threads)

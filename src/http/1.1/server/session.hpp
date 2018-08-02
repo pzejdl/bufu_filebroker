@@ -9,15 +9,13 @@
 #include <memory>
 #include <string>
 
+#include "fail.hpp"
 #include "request_handler.hpp"
 
 using tcp = boost::asio::ip::tcp; // from <boost/asio/ip/tcp.hpp>
 namespace http = boost::beast::http; // from <boost/beast/http.hpp>
 
 namespace http_server {
-
-// Forward declarations
-void fail(boost::system::error_code ec, char const* what);
 
 // Handles an HTTP server connection
 class session : public std::enable_shared_from_this<session> {
@@ -118,7 +116,7 @@ public:
             return do_close();
 
         if (ec)
-            return fail(ec, "read");
+            return FAIL(ec, "read");
 
         // Send the response
         //handle_request(doc_root_, std::move(req_), lambda_);
@@ -133,7 +131,7 @@ public:
         boost::ignore_unused(bytes_transferred);
 
         if (ec)
-            return fail(ec, "write");
+            return FAIL(ec, "write");
 
         if (close) {
             // This means we should close the connection, usually because

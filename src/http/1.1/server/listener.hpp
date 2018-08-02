@@ -10,9 +10,6 @@ using tcp = boost::asio::ip::tcp; // from <boost/asio/ip/tcp.hpp>
 namespace http_server {
 
 // Forward declarations
-void fail(boost::system::error_code ec, char const* what);
-
-// Forward declarations
 class request_handler;
 
 // Accepts incoming connections and launches the sessions

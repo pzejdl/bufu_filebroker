@@ -1,5 +1,6 @@
 #include "listener.hpp"
 #include "session.hpp"
+#include "fail.hpp"
 
 namespace http_server {
 
@@ -19,7 +20,7 @@ listener::listener(
     acceptor_.open(endpoint.protocol(), ec);
     if(ec)
     {
-        fail(ec, "open");
+        THROW_FAIL(ec, "open");
         return;
     }
 
@@ -27,7 +28,7 @@ listener::listener(
     acceptor_.set_option(boost::asio::socket_base::reuse_address(true));
     if(ec)
     {
-        fail(ec, "set_option");
+        THROW_FAIL(ec, "set_option");
         return;
     }
 
@@ -35,7 +36,7 @@ listener::listener(
     acceptor_.bind(endpoint, ec);
     if(ec)
     {
-        fail(ec, "bind");
+        THROW_FAIL(ec, "bind");
         return;
     }
 
@@ -44,7 +45,7 @@ listener::listener(
         boost::asio::socket_base::max_listen_connections, ec);
     if(ec)
     {
-        fail(ec, "listen");
+        THROW_FAIL(ec, "listen");
         return;
     }
 }
@@ -71,7 +72,7 @@ void listener::on_accept(boost::system::error_code ec)
 {
     if(ec)
     {
-        fail(ec, "accept");
+        FAIL(ec, "accept");
     }
     else
     {
