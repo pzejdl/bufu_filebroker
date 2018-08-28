@@ -9,21 +9,27 @@
 
 namespace fs = boost::filesystem;
 
+static fs::path baseDirectory = "/fff/ramdisk";
+static std::string indexFilePrefix = "fu/";
 
-/* Temporarily put here, but probably make configurable */
-static const fs::path baseDirectory = "/fff/ramdisk";
-static const std::string indexFilePrefix = "fu/";
+void bu::setBaseDirectory(const fs::path& path)
+{
+    baseDirectory = path;
+}
 
-const fs::path bu::getRunDirectory(int runNumber) {
-    return baseDirectory / ("run" + std::to_string(runNumber)); 
+void bu::setIndexFilePrefix(const std::string& prefix) {
+    fs::path prefixPath = prefix;
+    fs::path path = prefixPath / "f";
+    indexFilePrefix = prefix;
 }
 
 const std::string& bu::getIndexFilePrefix() {
     return indexFilePrefix;
 }
 
-
-//#include <boost/exception/diagnostic_information.hpp> 
+const fs::path bu::getRunDirectory(int runNumber) {
+    return baseDirectory / ("run" + std::to_string(runNumber)); 
+}
 
 
 /* 

@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include <boost/filesystem.hpp>
+#include <boost/program_options.hpp>
 
 #include "tools/tools.h"
 #include "bu/RunDirectoryManager.h"
@@ -9,6 +10,9 @@
 #include "tools/log.h"
 
 #include "config.h"
+
+namespace po = boost::program_options;
+
 
 //namespace fs = boost::filesystem;
 
@@ -303,7 +307,7 @@ void createWebApplications(http_server::request_handler& app)
 }
 
 
-void server(http_server::server& s)
+void serverRunner(http_server::server& s)
 {
     LOG(INFO) << TOOLS_THREAD_INFO();
     try {
@@ -321,34 +325,62 @@ void server(http_server::server& s)
  * This is the main function where everything start and should end... :)
  */
 
-int main()
+int main(int argc, char *argv[])
 {
-    //int runNumber = 1000030354;
-    //int runNumber = 615052;
-
     LOG(INFO) << "BUFU File Broker v" << BUFU_FILEBROKER_VERSION;
 
-    std::string address = "0.0.0.0";
-    std::string port = "8080";
-    std::string docRoot = "/fff/ramdisk"; 
+    std::string address;
+    std::string port;
+    int nbThreads;
+    std::string docRoot; 
+    std::string indexFilePrefix;
+    bool debugHTTPRequests = false;
+
+    try {
+        po::options_description desc("Options (default values are in brackets)");
+        desc.add_options()
+            ("help,h", "this help message.")
+            ("bind", po::value<std::string>(&address)->default_value("0.0.0.0"), "bind to a specific address.")
+            ("port", po::value<std::string>(&port)->default_value("8080"), "listen on a port.")
+            ("threads", po::value<int>(&nbThreads)->default_value(1), "number of threads serving HTTP requests.")
+            ("docroot", po::value<std::string>(&docRoot)->default_value("/fff/ramdisk"), "path from where the files are served.")
+            ("index-file-prefix", po::value<std::string>(&indexFilePrefix)->default_value("fu/"), "file prefix used when index files are renamed.")
+            ("debug-http-requests", po::bool_switch(&debugHTTPRequests), "print debug information when HTTP request is received.")
+        ;
+
+        po::variables_map vm;        
+        po::store(po::parse_command_line(argc, argv, desc), vm);
+        po::notify(vm);    
+
+        if (vm.count("help")) {
+            std::cout << "Usage: " << argv[0] << " [options]\n";
+            std::cout << desc << '\n';
+            return 0;
+        }
+
+        bu::setBaseDirectory( docRoot );
+        bu::setIndexFilePrefix( indexFilePrefix );
+    }
+    catch(std::exception& e) {
+        std::cerr << "ERROR: " << e.what() << '\n';
+        return 1;
+    }
 
     // Initialise the server.
-    http_server::server s(address, port, docRoot, /*threads*/ 1, /*debug_http_requests*/ false);
+    // Note: docRoot is not used here
+    http_server::server s(address, port, docRoot, nbThreads, debugHTTPRequests);
 
     // Add handlers
     createWebApplications( s.request_handler() );
 
-    LOG(INFO) << "Server: Starting HTTP server at " << address << ':' << port << docRoot;
+    LOG(INFO) << "Server: Starting HTTP server with " << nbThreads << " thread(s) at " << address << ':' << port << docRoot << " and using " << indexFilePrefix << " as index file prefix."; 
 
     try {
-        std::thread server1( ::server, std::ref(s) );
-        //std::thread server2( ::server, std::ref(s) );
-
-        server1.join();
-        //server2.join();
+        std::thread serverThread( serverRunner, std::ref(s) );
+        serverThread.join();
     }
     catch (const std::system_error& e) {
-        LOG(ERROR) << "Error: " << e.code() << " - " << e.what();
+        LOG(ERROR) << "ERROR: " << e.code() << " - " << e.what();
     }
     catch(const std::exception& e) {
         BACKTRACE_AND_RETHROW( std::runtime_error, "Exception detected." );

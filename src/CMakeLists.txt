@@ -3,7 +3,7 @@
 cmake_minimum_required(VERSION 2.8.10)
 
 project(bufu_filebroker)
-set (BUFU_FILEBROKER_VERSION "\"1.0.0\"")
+set (BUFU_FILEBROKER_VERSION "\"1.0.1\"")
 
 # C++ compiler flags
 set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wextra -rdynamic -O2 -g")
@@ -34,7 +34,7 @@ set(Boost_USE_MULTITHREADED ON)
 #set(Boost_USE_STATIC_LIBS   ON)
 
 # Automatically finds boost
-find_package(Boost 1.67 REQUIRED COMPONENTS system filesystem regex chrono)
+find_package(Boost 1.67 REQUIRED COMPONENTS system filesystem regex program_options chrono)
 
 # Using pthread
 find_package(Threads REQUIRED)

@@ -16,6 +16,10 @@ void request_handler::handle_request(
     http_server::request_t && req,
     Send&& send) const
 {
+
+    // Suppress warning for doc_root not being used
+    (void)doc_root;
+
     //TODO: Move these lambdas to a stock_reply
 
     // Returns a bad request response
@@ -45,6 +49,7 @@ void request_handler::handle_request(
     };
 
     // Returns a server error response
+    /* NOT USED now
     auto const server_error =
     [&req](boost::beast::string_view what)
     {
@@ -56,6 +61,7 @@ void request_handler::handle_request(
         res.prepare_payload();
         return res;
     };
+    */
 
     // Make sure we can handle the method
     if( req.method() != http::verb::get) {
