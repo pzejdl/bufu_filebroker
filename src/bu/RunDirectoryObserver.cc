@@ -77,16 +77,6 @@ const std::string& RunDirectoryObserver::getError() const
 // }
 
 
-void RunDirectoryObserver::run()
-{
-    try {
-        runner();
-    }
-    catch(const std::exception& e) {
-        BACKTRACE_AND_RETHROW( std::runtime_error, "Exception detected." );
-    } 
-}
-
 
 void RunDirectoryObserver::pushFile(bu::FileInfo file)
 {
@@ -165,11 +155,27 @@ void RunDirectoryObserver::optimizeAndPushFiles(const bu::files_t& files)
 }
 
 
+/**************************************************************************
+ * PRIVATE
+ */
+
+
+void RunDirectoryObserver::runner()
+{
+    try {
+        inotifyRunner();
+    }
+    catch(const std::exception& e) {
+        BACKTRACE_AND_RETHROW( std::runtime_error, "Exception detected." );
+    } 
+}
+
+
 /*
  * The main function responsible for finding files on BU.
  * Is run in a separate thread for each run directory that FU asks. 
  */
-void RunDirectoryObserver::runner()
+void RunDirectoryObserver::inotifyRunner()
 {
     LOG(INFO) << TOOLS_THREAD_INFO();
     WRITE_ONCE(isRunning, true);
@@ -330,6 +336,37 @@ void RunDirectoryObserver::runner()
 }
 
 
+/**************************************************************************
+ * PUBLIC
+ */
+
+
+// Starts the inotify thread
+void RunDirectoryObserver::start()
+{
+    assert( stats.run.state == RunDirectoryObserver::State::INIT );
+
+    runnerThread = std::thread(&RunDirectoryObserver::runner, this);
+    // FIXME: We detach because at the moment we don't have a way how to stop the thread
+    runnerThread.detach();
+    stats.run.state = RunDirectoryObserver::State::STARTING;
+    stats.fu.state = RunDirectoryObserver::State::STARTING;
+}
+
+
+void RunDirectoryObserver::stopAndWait()
+{
+    WRITE_ONCE(stopRequest, true);
+
+    LOG(DEBUG) << "Waiting for InotifyRunner to stop";
+    if (runnerThread.joinable()) {
+        runnerThread.join();
+    }
+    // FIXME: Better is to use mutex, the thread will sleep automaticaly during wait...
+    while ( ! READ_ONCE(isRunning) ) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    };
+}
 
 
 std::ostream& operator<< (std::ostream& os, RunDirectoryObserver::State state)
@@ -348,72 +385,5 @@ std::ostream& operator<< (std::ostream& os, RunDirectoryObserver::State state)
     return os;
 }
 
+
 } // namespace bu
-
-
-/*
-class RunDirectoryObserver {
-
-public:    
-
-    RunDirectoryObserver(int runNumber) : runNumber_(runNumber) {}
-    ~RunDirectoryObserver()
-    {
-        std::cout << "DEBUG: RunDirectoryObserver: Destructor called" << std::endl;
-        running_ = false;
-        if (runner_.joinable()) {
-            runner_.join();
-        }
-    }
-
-    RunDirectoryObserver(const RunDirectoryObserver&) = delete;
-    RunDirectoryObserver& operator=(const RunDirectoryObserver&) = delete;
-
-
-    void start() 
-    {
-        assert( state_ == State::INIT );
-        runner_ = std::thread(&RunDirectoryObserver::run, this);
-        runner_.detach();
-        state_ = State::STARTING;
-    }
-
-
-    void stopRequest()
-    {
-        running_ = false;    
-    }
-
-
-    State state() const 
-    {
-        return state_;
-    }
-
-    FileNameQueue_t& queue()
-    {
-        return queue_;
-    }
-
-private:
-
-    void run()
-    {
-        while (running_) {
-            std::cout << "RunDirectoryObserver: Alive" << std::endl;
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        }
-        std::cout << "RunDirectoryObserver: Finished" << std::endl;
-        state_ = State::STOP;
-    }
-
-private:
-    std::atomic<State> state_ { State::INIT };
-    std::atomic<bool> running_{ true };
-
-    int runNumber_;
-    std::thread runner_ {};
-
-    FileNameQueue_t queue_;
-};
-*/

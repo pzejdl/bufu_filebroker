@@ -43,7 +43,6 @@ public:
 private:
     RunDirectoryObserverPtr getRunDirectoryObserver(int runNumber);
     RunDirectoryObserverPtr createRunDirectoryObserver_unlocked(int runNumber);
-    void startRunner(const RunDirectoryObserverPtr& observer) const;
     bool isStopLS(const RunDirectoryObserverPtr& observer, int stopLS) const;
 
 private:

@@ -197,18 +197,6 @@ RunDirectoryObserverPtr RunDirectoryManager::getRunDirectoryObserver(int runNumb
 }
 
 
-// TODO: Move to RunDirectoryObserver
-void RunDirectoryManager::startRunner(const RunDirectoryObserverPtr& observer) const
-{
-    assert( observer->stats.run.state == RunDirectoryObserver::State::INIT );
-
-    observer->runnerThread = std::thread(&RunDirectoryObserver::run, observer);
-    observer->runnerThread.detach();
-    observer->stats.run.state = RunDirectoryObserver::State::STARTING;
-    observer->stats.fu.state = RunDirectoryObserver::State::STARTING;
-}
-
-
 // FIXME
 RunDirectoryObserverPtr RunDirectoryManager::createRunDirectoryObserver_unlocked(int runNumber)
 {
@@ -228,8 +216,8 @@ RunDirectoryObserverPtr RunDirectoryManager::createRunDirectoryObserver_unlocked
 
     LOG(DEBUG) << "runDirectoryObserver created for runNumber: " << iter->first;
 
-    //TODO: observer.start();
-    startRunner(observer);
+    // Start the runner thread
+    observer->start();
 
     return observer;
 }

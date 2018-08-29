@@ -35,12 +35,13 @@ namespace bu {
 //typedef std::queue<bu::FileInfo> FileQueue_t;
 
 
-// TODO: Use a sorted queue that is better for keepeing files...
+// TODO: Use a sorted queue that is better for keeping files...
 typedef std::priority_queue< bu::FileInfo, std::vector<bu::FileInfo>, std::greater<bu::FileInfo> > FileQueue_t;
 
 
-struct RunDirectoryObserver {
-    // Note that this class cannot be copied or moved because of queue
+class RunDirectoryObserver {
+public:
+    // Note that this class cannot be copied or moved because of the queue
 
     enum class State { INIT, STARTING, READY, EOLS, EOR, ERROR, NORUN };
     friend std::ostream& operator<< (std::ostream& os, const RunDirectoryObserver::State state);
@@ -62,10 +63,15 @@ struct RunDirectoryObserver {
     // is unsafe
     //void setError(const std::string& errorMessage);
 
-    void run();
+    void start();
+    void stopAndWait();
 
+
+private:
     void runner();
+    void inotifyRunner();
 
+public:
     void pushFile(bu::FileInfo file);
     //void updateStats(const bu::FileInfo& file, bool updateFU);
     void updateRunDirectoryStats(const bu::FileInfo& file);
@@ -123,6 +129,9 @@ struct RunDirectoryObserver {
         } fu;
     } stats;
 
+private:
+//Temporary:
+public:
     std::mutex runDirectoryObserverLock;                // Synchronize updates
 };
 
