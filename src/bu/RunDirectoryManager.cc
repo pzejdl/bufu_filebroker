@@ -160,15 +160,18 @@ const std::string& RunDirectoryManager::getError(int runNumber) {
 }
 
 
-// void RunDirectoryManager::setError(int runNumber, const std::string& errorMessage) {
-//     RunDirectoryObserverPtr observer = getRunDirectoryObserver( runNumber );
-//     observer->setError( errorMessage );
-// }
-
-
 void RunDirectoryManager::restartRunDirectoryObserver(int runNumber) 
 {
-     createRunDirectoryObserver( runNumber );
+    std::lock_guard<std::mutex> lock(runDirectoryManagerLock_);
+
+    // FIXME: Just to allow restart, we remove any existing runObserver from the map. Obviously, this is creating a memory leak!!!
+    if (runDirectoryObservers_.erase( runNumber ) > 0) {
+        LOG(WARNING) << "runDirectoryObserver erased for runNumber: " << runNumber << ", this caused a resource leak! Use only for debugging!!!";
+    }
+
+    // TODO: The runDirectoryObserver has to be stop
+
+    createRunDirectoryObserver_unlocked( runNumber );
 }
 
 
@@ -182,15 +185,15 @@ RunDirectoryObserverPtr RunDirectoryManager::getRunDirectoryObserver(int runNumb
     {
         std::lock_guard<std::mutex> lock(runDirectoryManagerLock_);
 
-        //Check if we already have observer for that run
+        // Check if we already have observer for that run
         const auto iter = runDirectoryObservers_.find( runNumber );
         if (iter != runDirectoryObservers_.end()) {
             return iter->second;
         }
-    }
 
-    // No, we don't have. We create a new one
-    return createRunDirectoryObserver( runNumber );
+        // No, we don't have. We create a new one
+        return createRunDirectoryObserver_unlocked( runNumber );
+    }
 }
 
 
@@ -207,25 +210,21 @@ void RunDirectoryManager::startRunner(const RunDirectoryObserverPtr& observer) c
 
 
 // FIXME
-RunDirectoryObserverPtr RunDirectoryManager::createRunDirectoryObserver(int runNumber)
+RunDirectoryObserverPtr RunDirectoryManager::createRunDirectoryObserver_unlocked(int runNumber)
 {
-    std::unique_lock<std::mutex> lock(runDirectoryManagerLock_);
-
-        // FIXME: Just to allow restart, we remove any existing runObserver from the map. Obviously, this is creating a memory leak!!!
-        if (runDirectoryObservers_.erase( runNumber ) > 0) {
-            LOG(DEBUG) << "runDirectoryObserver erased for runNumber: " << runNumber;
-        }
+    //std::unique_lock<std::mutex> lock(runDirectoryManagerLock_);
 
         // Constructs a new runDirectoryObserver directly in the map directly
         auto emplaceResult = runDirectoryObservers_.emplace( runNumber, std::make_shared<RunDirectoryObserver>(runNumber) );
 
-        // Normally, the runNumber was not in the map before, but better be safe
+        // Normally, the runNumber was not in the map before, but better to be safe
+        // It would be a fault to create a new observer if one already exists
         assert( emplaceResult.second == true );
 
         auto iter = emplaceResult.first;
         RunDirectoryObserverPtr observer = iter->second;
     
-    lock.unlock();
+    //lock.unlock();
 
     LOG(DEBUG) << "runDirectoryObserver created for runNumber: " << iter->first;
 

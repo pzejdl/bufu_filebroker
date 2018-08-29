@@ -37,16 +37,12 @@ public:
     // Return the error message for a particular run
     const std::string& getError(int runNumber);
 
-    // Set ERROR state and error message for particular run
-    // is unsafe
-    //void setError(int runNumber, const std::string& errorMessage);
-
-    // FIXME: This will create a resource leak
+    // FIXME: This will create a resource leak, use only for debugging
     void restartRunDirectoryObserver(int runNumber);
 
 private:
     RunDirectoryObserverPtr getRunDirectoryObserver(int runNumber);
-    RunDirectoryObserverPtr createRunDirectoryObserver(int runNumber);
+    RunDirectoryObserverPtr createRunDirectoryObserver_unlocked(int runNumber);
     void startRunner(const RunDirectoryObserverPtr& observer) const;
     bool isStopLS(const RunDirectoryObserverPtr& observer, int stopLS) const;
 
