@@ -113,9 +113,10 @@ void RunDirectoryObserver::pushFile(bu::FileInfo file)
 
 
 template< class T >
-void updateStats(const bu::FileInfo& file, T& s)
+void updateStats(int runNumber, const bu::FileInfo& file, T& s)
 {
     // Sanity check. In principle always OK.
+    assert( (uint32_t)runNumber == file.runNumber );
     assert( file.type != FileInfo::FileType::EMPTY );
 
     if (file.isEoLS()) {
@@ -132,46 +133,14 @@ void updateStats(const bu::FileInfo& file, T& s)
 
 void RunDirectoryObserver::updateRunDirectoryStats(const bu::FileInfo& file)
 {
-    // Sanity check. In principle always OK.
-    assert( (uint32_t)runNumber == file.runNumber );
-    /*
-    assert( file.type != FileInfo::FileType::EMPTY );
-
-    if (file.isEoLS()) {
-        stats.run.lastEoLS = file.lumiSection;
-        stats.run.state = State::EOLS;
-    } else if (file.isEoR()) {
-        stats.run.state = bu::RunDirectoryObserver::State::EOR;
-    } else {
-        assert( file.type == bu::FileInfo::FileType::INDEX );
-        stats.run.state = bu::RunDirectoryObserver::State::READY;
-    }
-    */
-    updateStats(file, stats.run);
-
+    updateStats(runNumber, file, stats.run);
     stats.run.lastProcessedFile = file;
 }
 
 
 void RunDirectoryObserver::updateFUStats(const bu::FileInfo& file)
 {
-    // Sanity check. In principle always OK.
-    assert( (uint32_t)runNumber == file.runNumber );
-    /*
-    assert( file.type != FileInfo::FileType::EMPTY );
-
-    if (file.isEoLS()) {
-        stats.fu.lastEoLS = file.lumiSection;
-        stats.fu.state = State::EOLS;
-    } else if (file.isEoR()) {
-        stats.fu.state = bu::RunDirectoryObserver::State::EOR;
-    } else {
-        assert( file.type == bu::FileInfo::FileType::INDEX );
-        stats.fu.state = bu::RunDirectoryObserver::State::READY;
-    }
-    */
-    updateStats(file, stats.fu);
-
+    updateStats(runNumber, file, stats.fu);
     stats.fu.lastPoppedFile = file;
 }
 
