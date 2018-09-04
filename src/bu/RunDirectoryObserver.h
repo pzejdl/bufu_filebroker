@@ -46,47 +46,41 @@ public:
     enum class State { INIT, STARTING, READY, EOLS, EOR, ERROR, NORUN };
     friend std::ostream& operator<< (std::ostream& os, const RunDirectoryObserver::State state);
 
-
     RunDirectoryObserver(int runNumber);
     ~RunDirectoryObserver();
 
     RunDirectoryObserver(const RunDirectoryObserver&) = delete;
     RunDirectoryObserver& operator=(const RunDirectoryObserver&) = delete;
     
-
     std::string getStats() const;
     const std::string& getError() const;
 
-    // Sets error message and goes to ERROR state
-    // is unsafe
-    //void setError(const std::string& errorMessage);
-
+    // Start inotify thread
     void start();
     void stopAndWait();
-
-
+    /*
+     * Returns a tuple of:
+     *   file, state, lastEoLS
+     * 
+     * TODO: Candidate for structured binding with std::optional in C++17
+     */
     std::tuple< FileInfo, RunDirectoryObserver::State, int > popRunFile(int stopLS = -1);
 
 private:
     bool isStopLS(int stopLS) const;
-
-
-private:
+    // The main runner that will call inotifyRunner()
     void runner();
     void inotifyRunner();
-
-public:
     void pushFile(bu::FileInfo file);
-    //void updateStats(const bu::FileInfo& file, bool updateFU);
     void updateRunDirectoryStats(const bu::FileInfo& file);
     void updateFUStats(const bu::FileInfo& file);
     void optimizeAndPushFiles(const files_t& files);
 
-
+private:
     int runNumber;
     FileQueue_t queue;
 
-    // This error message is valid only if state is ERROR
+    // This error message is valid only if the state is ERROR
     std::string errorMessage;
 
     std::thread runnerThread;
@@ -133,9 +127,6 @@ public:
         } fu;
     } stats;
 
-private:
-//Temporary:
-public:
     std::mutex runDirectoryObserverLock;                // Synchronize updates
 };
 

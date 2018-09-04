@@ -95,6 +95,10 @@ const std::string& RunDirectoryObserver::getError() const
 // }
 
 
+/**************************************************************************
+ * PRIVATE
+ */
+
 
 void RunDirectoryObserver::pushFile(bu::FileInfo file)
 {
@@ -108,10 +112,29 @@ void RunDirectoryObserver::pushFile(bu::FileInfo file)
 }
 
 
+template< class T >
+void updateStats(const bu::FileInfo& file, T& s)
+{
+    // Sanity check. In principle always OK.
+    assert( file.type != FileInfo::FileType::EMPTY );
+
+    if (file.isEoLS()) {
+        s.lastEoLS = file.lumiSection;
+        s.state = bu::RunDirectoryObserver::State::EOLS;
+    } else if (file.isEoR()) {
+        s.state = bu::RunDirectoryObserver::State::EOR;
+    } else {
+        assert( file.type == bu::FileInfo::FileType::INDEX );
+        s.state = bu::RunDirectoryObserver::State::READY;
+    }    
+}
+
+
 void RunDirectoryObserver::updateRunDirectoryStats(const bu::FileInfo& file)
 {
     // Sanity check. In principle always OK.
     assert( (uint32_t)runNumber == file.runNumber );
+    /*
     assert( file.type != FileInfo::FileType::EMPTY );
 
     if (file.isEoLS()) {
@@ -123,6 +146,8 @@ void RunDirectoryObserver::updateRunDirectoryStats(const bu::FileInfo& file)
         assert( file.type == bu::FileInfo::FileType::INDEX );
         stats.run.state = bu::RunDirectoryObserver::State::READY;
     }
+    */
+    updateStats(file, stats.run);
 
     stats.run.lastProcessedFile = file;
 }
@@ -132,6 +157,7 @@ void RunDirectoryObserver::updateFUStats(const bu::FileInfo& file)
 {
     // Sanity check. In principle always OK.
     assert( (uint32_t)runNumber == file.runNumber );
+    /*
     assert( file.type != FileInfo::FileType::EMPTY );
 
     if (file.isEoLS()) {
@@ -143,11 +169,14 @@ void RunDirectoryObserver::updateFUStats(const bu::FileInfo& file)
         assert( file.type == bu::FileInfo::FileType::INDEX );
         stats.fu.state = bu::RunDirectoryObserver::State::READY;
     }
+    */
+    updateStats(file, stats.fu);
 
     stats.fu.lastPoppedFile = file;
 }
 
 
+// Skip empty lumisections
 void RunDirectoryObserver::optimizeAndPushFiles(const bu::files_t& files) 
 {
     bool sawIndexFile = false;
@@ -171,122 +200,6 @@ void RunDirectoryObserver::optimizeAndPushFiles(const bu::files_t& files)
         pushFile( std::move(file) );
     }
 }
-
-
-/*
- * Test whether we have to artificially force EOLS if stopLS is greater then the current lumiSection
- * or we have EoLS in the stopLS lumiSection.
- */
-bool RunDirectoryObserver::isStopLS(int stopLS) const
-{
-    if (stopLS < 0) 
-        return false;
-    
-    if (!queue.empty()) {
-        //const FileInfo& file = queue.front();
-        const FileInfo& file = queue.top();
-        if  ( 
-            ( (long)file.lumiSection == stopLS && file.type == FileInfo::FileType::EOLS ) ||
-            ( (long)file.lumiSection > stopLS ) 
-            ) { 
-            return true;
-        }    
-    } else if (stats.fu.lastEoLS >= stopLS) {
-        return true;
-    }
-
-    return false;
-}
-
-
-std::tuple< FileInfo, RunDirectoryObserver::State, int > RunDirectoryObserver::popRunFile(int stopLS)
-{
-    static const FileInfo emptyFile; 
-    FileInfo file;  // Is empty on construction
-    RunDirectoryObserver::State state;
-    int lastEoLS;
-
-    std::lock_guard<std::mutex> lock(runDirectoryObserverLock);
-
-    stats.fu.nbRequests++;
-
-    if (isStopLS(stopLS)) {
-        stats.fu.stopLS = stopLS;
-        return std::make_tuple( emptyFile, RunDirectoryObserver::State::EOR, stopLS );
-    }
-
-    while (!queue.empty()) {
-        //file = std::move( queue.front() );
-        const FileInfo& peekFile = queue.top();
-
-        //LOG(DEBUG) << "peekFile=" << peekFile.fileName();
-
-        // Consistency checks
-        if (peekFile.type != FileInfo::FileType::EOR) {
-            assert( (int)peekFile.lumiSection > stats.fu.lastEoLS );
-
-            // If we receive a file for a having larger LS than the expected, we keep it in the queue and wait for EoLS
-            if ((int)peekFile.lumiSection > (stats.fu.lastEoLS + 1)) {
-                stats.fu.nbWaitsForEoLS++;
-                file.type = FileInfo::FileType::EMPTY;
-                break;
-            }
-        }
-        
-        //file = std::move( queue.top() );
-        file = std::move( peekFile );
-        queue.pop();
-
-        // Consistency check
-        if ( 
-            stats.fu.lastPoppedFile.lumiSection > file.lumiSection &&
-            stats.fu.lastPoppedFile.type != FileInfo::FileType::EMPTY &&
-            file.type != FileInfo::FileType::EOR
-        ) {
-            std::ostringstream os;
-            os  << "Consistency check failed, file order is broken:\n"
-                << "  Going to give file:            " << file.fileName() << '\n' 
-                << "  But the last file given to FU: " << stats.fu.lastPoppedFile.fileName();
-            LOG(FATAL) << os.str();
-            THROW( std::runtime_error, os.str() );
-        }
-
-        updateFUStats( file );
-
-        // Is EoR then we can free the queue
-        if (file.type == FileInfo::FileType::EOR) {
-            // At this moment the queue has to be empty!
-            assert( queue.empty() );
-
-            // C++11 allows us to move in a new empty queue, as a side effect the memory occupied by the previous is freed...  
-            FileQueue_t tempQueue;
-            queue = std::move( tempQueue );
-        }
-
-        // Skip EoLS and EoR
-        if (file.type == FileInfo::FileType::EOLS || file.type == FileInfo::FileType::EOR) {
-            file.type = FileInfo::FileType::EMPTY;
-            stats.nbJsnFilesOptimized++; 
-            continue;
-        }
-        break;
-    }
-    state = stats.fu.state;
-    lastEoLS = stats.fu.lastEoLS;
-    
-
-    if ( file.type == FileInfo::FileType::EMPTY ) {
-        stats.fu.nbEmptyReplies++; 
-    }
-
-    return std::make_tuple( file, state, lastEoLS );
-}
-
-
-
-/**************************************************************************
- * PRIVATE
- */
 
 
 void RunDirectoryObserver::runner()
@@ -465,6 +378,32 @@ void RunDirectoryObserver::inotifyRunner()
 }
 
 
+/*
+ * Test whether we have to artificially force EOLS if stopLS is greater then the current lumiSection
+ * or we have EoLS in the stopLS lumiSection.
+ */
+bool RunDirectoryObserver::isStopLS(int stopLS) const
+{
+    if (stopLS < 0) 
+        return false;
+    
+    if (!queue.empty()) {
+        //const FileInfo& file = queue.front();
+        const FileInfo& file = queue.top();
+        if  ( 
+            ( (long)file.lumiSection == stopLS && file.type == FileInfo::FileType::EOLS ) ||
+            ( (long)file.lumiSection > stopLS ) 
+            ) { 
+            return true;
+        }    
+    } else if (stats.fu.lastEoLS >= stopLS) {
+        return true;
+    }
+
+    return false;
+}
+
+
 /**************************************************************************
  * PUBLIC
  */
@@ -495,6 +434,89 @@ void RunDirectoryObserver::stopAndWait()
     while ( ! READ_ONCE(isRunning) ) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     };
+}
+
+
+std::tuple< FileInfo, RunDirectoryObserver::State, int > RunDirectoryObserver::popRunFile(int stopLS)
+{
+    static const FileInfo emptyFile; 
+    FileInfo file;  // Is empty on construction
+    RunDirectoryObserver::State state;
+    int lastEoLS;
+
+    std::lock_guard<std::mutex> lock(runDirectoryObserverLock);
+
+    stats.fu.nbRequests++;
+
+    if (isStopLS(stopLS)) {
+        stats.fu.stopLS = stopLS;
+        return std::make_tuple( emptyFile, RunDirectoryObserver::State::EOR, stopLS );
+    }
+
+    while (!queue.empty()) {
+        const FileInfo& peekFile = queue.top();
+
+        //LOG(DEBUG) << "peekFile=" << peekFile.fileName();
+
+        // Check for the out of order files
+        if (peekFile.type != FileInfo::FileType::EOR) {
+            // Consistency checks
+            assert( (int)peekFile.lumiSection > stats.fu.lastEoLS );
+
+            // If we receive a file for a having larger LS than the expected, we keep it in the queue and wait for EoLS
+            if ((int)peekFile.lumiSection > (stats.fu.lastEoLS + 1)) {
+                stats.fu.nbWaitsForEoLS++;
+                file.type = FileInfo::FileType::EMPTY;
+                break;
+            }
+        }
+        
+        file = std::move( peekFile );
+        queue.pop();
+
+        // Consistency check
+        if ( 
+            stats.fu.lastPoppedFile.lumiSection > file.lumiSection &&
+            stats.fu.lastPoppedFile.type != FileInfo::FileType::EMPTY &&
+            file.type != FileInfo::FileType::EOR
+        ) {
+            std::ostringstream os;
+            os  << "Consistency check failed, file order is broken:\n"
+                << "  Going to give file:            " << file.fileName() << '\n' 
+                << "  But the last file given to FU: " << stats.fu.lastPoppedFile.fileName();
+            LOG(FATAL) << os.str();
+            THROW( std::runtime_error, os.str() );
+        }
+
+        updateFUStats( file );
+
+        // Is EoR then we can free the queue
+        if (file.type == FileInfo::FileType::EOR) {
+            // At this moment the queue has to be empty!
+            assert( queue.empty() );
+
+            // C++11 allows us to move in a new empty queue, as a side effect the memory occupied by the previous is freed...  
+            FileQueue_t tempQueue;
+            queue = std::move( tempQueue );
+        }
+
+        // Skip EoLS and EoR
+        if (file.type == FileInfo::FileType::EOLS || file.type == FileInfo::FileType::EOR) {
+            file.type = FileInfo::FileType::EMPTY;
+            stats.nbJsnFilesOptimized++; 
+            continue;
+        }
+        break;
+    }
+    state = stats.fu.state;
+    lastEoLS = stats.fu.lastEoLS;
+    
+
+    if ( file.type == FileInfo::FileType::EMPTY ) {
+        stats.fu.nbEmptyReplies++; 
+    }
+
+    return std::make_tuple( file, state, lastEoLS );
 }
 
 
