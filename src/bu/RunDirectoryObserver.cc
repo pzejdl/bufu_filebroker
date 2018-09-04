@@ -87,14 +87,6 @@ const std::string& RunDirectoryObserver::getError() const
 }
 
 
-// void RunDirectoryObserver::setError(const std::string& errorMessage)
-// {
-//     stats.run.state = bu::RunDirectoryObserver::State::ERROR;
-//     stats.fu.state = bu::RunDirectoryObserver::State::ERROR;
-//     this->errorMessage = errorMessage;
-// }
-
-
 /**************************************************************************
  * PRIVATE
  */

@@ -21,20 +21,17 @@ std::tuple< FileInfo, RunDirectoryObserver::State, int > RunDirectoryManager::po
 
 const std::string RunDirectoryManager::getStats() 
 {
-    int runNumbers = 0;
     std::ostringstream os;
-    //os << "runNumbers=" << runDirectoryObservers_.size() << std::endl;
+    os << "runNumbers=" << runDirectoryObservers_.size() << '\n';
     {
         std::lock_guard<std::mutex> lock(runDirectoryManagerLock_);
         for (const auto& pair : runDirectoryObservers_) {
             // Since we are running locked, we don't have to take the ownership of the shared pointer
             const RunDirectoryObserverPtr& observer = pair.second;
             os << observer->getStats();
-            runNumbers++;
         }
     }
-    //return os.str();
-    return "runNumbers=" + std::to_string(runNumbers) + '\n' + os.str();
+    return os.str();
 }
 
 
