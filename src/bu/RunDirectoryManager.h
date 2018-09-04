@@ -1,7 +1,6 @@
 #pragma once
 
 #include <unordered_map>
-//#include <forward_list>
 
 #include "bu/RunDirectoryObserver.h"
 
@@ -9,14 +8,6 @@
 namespace bu {
 
 class RunDirectoryManager {
-public:
-
-    // struct RunFileInfo {
-    //     FileInfo file;
-    //     RunDirectoryObserver::State state;
-    //     int lastEoLS;
-    // };
-
 public:
     RunDirectoryManager();
 
@@ -43,15 +34,12 @@ public:
 private:
     RunDirectoryObserverPtr getRunDirectoryObserver(int runNumber);
     RunDirectoryObserverPtr createRunDirectoryObserver_unlocked(int runNumber);
-    bool isStopLS(const RunDirectoryObserverPtr& observer, int stopLS) const;
 
 private:
+    // Maps runNumbers to RunDirectoryObservers
     std::unordered_map< int, RunDirectoryObserverPtr > runDirectoryObservers_;
 
-    //TODO: faster would be to use forward_list, but check if we can add new elements (with locking) and do iteration without locking...
-    //std::forward_list< std::pair< int, RunDirectoryObserverPtr > > runDirectoryObservers_;
-
-    // Would be better to use shared_mutex, but for the moment there is only one reader, so the spinlock is the best
+    // Would be better to use shared_mutex (i.e. read lock), but for the moment there is only one reader, so the mutex or spinlock is the best
     std::mutex runDirectoryManagerLock_;    
 };
 

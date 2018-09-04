@@ -35,7 +35,7 @@ namespace bu {
 //typedef std::queue<bu::FileInfo> FileQueue_t;
 
 
-// TODO: Use a sorted queue that is better for keeping files...
+// TODO: We can make a queue internally having multiple queues based on lumisection numbers, that would perform better than priority_queue
 typedef std::priority_queue< bu::FileInfo, std::vector<bu::FileInfo>, std::greater<bu::FileInfo> > FileQueue_t;
 
 
@@ -50,13 +50,11 @@ public:
     RunDirectoryObserver(int runNumber);
     ~RunDirectoryObserver();
 
-
-    // RunDirectoryObserver(const RunDirectoryObserver&) = delete;
-    // RunDirectoryObserver& operator=(const RunDirectoryObserver&) = delete;
+    RunDirectoryObserver(const RunDirectoryObserver&) = delete;
+    RunDirectoryObserver& operator=(const RunDirectoryObserver&) = delete;
     
 
     std::string getStats() const;
-
     const std::string& getError() const;
 
     // Sets error message and goes to ERROR state
@@ -65,6 +63,12 @@ public:
 
     void start();
     void stopAndWait();
+
+
+    std::tuple< FileInfo, RunDirectoryObserver::State, int > popRunFile(int stopLS = -1);
+
+private:
+    bool isStopLS(int stopLS) const;
 
 
 private:

@@ -11,7 +11,25 @@
 
 namespace bu {
 
+std::ostream& operator<< (std::ostream& os, RunDirectoryObserver::State state)
+{
+    switch (state)
+    {
+        case RunDirectoryObserver::State::INIT:     return os << "INIT" ;
+        case RunDirectoryObserver::State::STARTING: return os << "STARTING";
+        case RunDirectoryObserver::State::READY:    return os << "READY";
+        case RunDirectoryObserver::State::EOLS:     return os << "EOLS";
+        case RunDirectoryObserver::State::EOR:      return os << "EOR";
+        case RunDirectoryObserver::State::ERROR:    return os << "ERROR";
+        case RunDirectoryObserver::State::NORUN:    return os << "NORUN";
+        // Omit default case to trigger compiler warning for missing cases
+    };
+    return os;
+}
+
+
 RunDirectoryObserver::RunDirectoryObserver(int runNumber) : runNumber(runNumber) {}
+
 
 RunDirectoryObserver::~RunDirectoryObserver()
 {
@@ -153,6 +171,117 @@ void RunDirectoryObserver::optimizeAndPushFiles(const bu::files_t& files)
         pushFile( std::move(file) );
     }
 }
+
+
+/*
+ * Test whether we have to artificially force EOLS if stopLS is greater then the current lumiSection
+ * or we have EoLS in the stopLS lumiSection.
+ */
+bool RunDirectoryObserver::isStopLS(int stopLS) const
+{
+    if (stopLS < 0) 
+        return false;
+    
+    if (!queue.empty()) {
+        //const FileInfo& file = queue.front();
+        const FileInfo& file = queue.top();
+        if  ( 
+            ( (long)file.lumiSection == stopLS && file.type == FileInfo::FileType::EOLS ) ||
+            ( (long)file.lumiSection > stopLS ) 
+            ) { 
+            return true;
+        }    
+    } else if (stats.fu.lastEoLS >= stopLS) {
+        return true;
+    }
+
+    return false;
+}
+
+
+std::tuple< FileInfo, RunDirectoryObserver::State, int > RunDirectoryObserver::popRunFile(int stopLS)
+{
+    static const FileInfo emptyFile; 
+    FileInfo file;  // Is empty on construction
+    RunDirectoryObserver::State state;
+    int lastEoLS;
+
+    std::lock_guard<std::mutex> lock(runDirectoryObserverLock);
+
+    stats.fu.nbRequests++;
+
+    if (isStopLS(stopLS)) {
+        stats.fu.stopLS = stopLS;
+        return std::make_tuple( emptyFile, RunDirectoryObserver::State::EOR, stopLS );
+    }
+
+    while (!queue.empty()) {
+        //file = std::move( queue.front() );
+        const FileInfo& peekFile = queue.top();
+
+        //LOG(DEBUG) << "peekFile=" << peekFile.fileName();
+
+        // Consistency checks
+        if (peekFile.type != FileInfo::FileType::EOR) {
+            assert( (int)peekFile.lumiSection > stats.fu.lastEoLS );
+
+            // If we receive a file for a having larger LS than the expected, we keep it in the queue and wait for EoLS
+            if ((int)peekFile.lumiSection > (stats.fu.lastEoLS + 1)) {
+                stats.fu.nbWaitsForEoLS++;
+                file.type = FileInfo::FileType::EMPTY;
+                break;
+            }
+        }
+        
+        //file = std::move( queue.top() );
+        file = std::move( peekFile );
+        queue.pop();
+
+        // Consistency check
+        if ( 
+            stats.fu.lastPoppedFile.lumiSection > file.lumiSection &&
+            stats.fu.lastPoppedFile.type != FileInfo::FileType::EMPTY &&
+            file.type != FileInfo::FileType::EOR
+        ) {
+            std::ostringstream os;
+            os  << "Consistency check failed, file order is broken:\n"
+                << "  Going to give file:            " << file.fileName() << '\n' 
+                << "  But the last file given to FU: " << stats.fu.lastPoppedFile.fileName();
+            LOG(FATAL) << os.str();
+            THROW( std::runtime_error, os.str() );
+        }
+
+        updateFUStats( file );
+
+        // Is EoR then we can free the queue
+        if (file.type == FileInfo::FileType::EOR) {
+            // At this moment the queue has to be empty!
+            assert( queue.empty() );
+
+            // C++11 allows us to move in a new empty queue, as a side effect the memory occupied by the previous is freed...  
+            FileQueue_t tempQueue;
+            queue = std::move( tempQueue );
+        }
+
+        // Skip EoLS and EoR
+        if (file.type == FileInfo::FileType::EOLS || file.type == FileInfo::FileType::EOR) {
+            file.type = FileInfo::FileType::EMPTY;
+            stats.nbJsnFilesOptimized++; 
+            continue;
+        }
+        break;
+    }
+    state = stats.fu.state;
+    lastEoLS = stats.fu.lastEoLS;
+    
+
+    if ( file.type == FileInfo::FileType::EMPTY ) {
+        stats.fu.nbEmptyReplies++; 
+    }
+
+    return std::make_tuple( file, state, lastEoLS );
+}
+
 
 
 /**************************************************************************
@@ -366,23 +495,6 @@ void RunDirectoryObserver::stopAndWait()
     while ( ! READ_ONCE(isRunning) ) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     };
-}
-
-
-std::ostream& operator<< (std::ostream& os, RunDirectoryObserver::State state)
-{
-    switch (state)
-    {
-        case RunDirectoryObserver::State::INIT:     return os << "INIT" ;
-        case RunDirectoryObserver::State::STARTING: return os << "STARTING";
-        case RunDirectoryObserver::State::READY:    return os << "READY";
-        case RunDirectoryObserver::State::EOLS:     return os << "EOLS";
-        case RunDirectoryObserver::State::EOR:      return os << "EOR";
-        case RunDirectoryObserver::State::ERROR:    return os << "ERROR";
-        case RunDirectoryObserver::State::NORUN:    return os << "NORUN";
-        // Omit default case to trigger compiler warning for missing cases
-    };
-    return os;
 }
 
 
