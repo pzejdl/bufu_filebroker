@@ -216,7 +216,6 @@ void RunDirectoryObserver::inotifyRunner()
     try {
         inotify.add_watch( runDirectoryPath, IN_CLOSE_WRITE | IN_MOVED_TO );
     }
-    //TODO: Move to the end of this function and make a more general case
     catch(const std::system_error& e) {
         if (e.code().value() == static_cast<int>(std::errc::no_such_file_or_directory)) {
             // Special handling for a case when the run directory doesn't exists (Srecko's request)
@@ -281,7 +280,6 @@ void RunDirectoryObserver::inotifyRunner()
 
     optimizeAndPushFiles(files);
 
-    // TODO: Check if FUs can start reading earlier...
     // FUs can start reading from our queue NOW
 
     if ( queue.empty() ) {
@@ -357,7 +355,6 @@ bool RunDirectoryObserver::isStopLS(int stopLS) const
         return false;
     
     if (!queue.empty()) {
-        //const FileInfo& file = queue.front();
         const FileInfo& file = queue.top();
         if  ( 
             ( (long)file.lumiSection == stopLS && file.type == FileInfo::FileType::EOLS ) ||
