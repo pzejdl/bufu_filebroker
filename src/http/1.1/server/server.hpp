@@ -14,8 +14,8 @@ public:
 
     /// Construct the server to listen on the specified TCP address and port, and
     /// serve up files from the given directory.
-    explicit server(const std::string& address, const std::string& port,
-        const std::string& doc_root, int threads, bool debug_http_requests = false);
+    explicit server(const std::string address, const std::string port,
+        const std::string doc_root, int threads, bool debug_http_requests = false);
 
     class request_handler& request_handler()
     {
@@ -26,6 +26,9 @@ public:
     void run();
 
 private:
+    /// Store doc_root here, so it doesn't go out of scope
+    const std::string doc_root_;
+
     /// The io_context used to perform asynchronous operations.
     boost::asio::io_context io_context_;
 
