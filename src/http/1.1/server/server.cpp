@@ -4,7 +4,6 @@
 //
 //------------------------------------------------------------------------------
 
-#include <boost/asio/ip/tcp.hpp>
 #include <memory>
 #include <string>
 #include <thread>
@@ -17,10 +16,11 @@ using tcp = boost::asio::ip::tcp; // from <boost/asio/ip/tcp.hpp>
 
 namespace http_server {
 
-server::server(const std::string& address_str, const std::string& port_str, const std::string& doc_root, int threads, bool debug_http_requests)
-    : io_context_(threads)
+server::server(const std::string address_str, const std::string port_str, const std::string doc_root, int threads, bool debug_http_requests)
+    : doc_root_(doc_root)
+    , io_context_(threads)
     , threads_(threads)
-    , request_handler_(doc_root, debug_http_requests)
+    , request_handler_(doc_root_, debug_http_requests)
 {
 
     auto const address = boost::asio::ip::make_address(address_str);
@@ -30,7 +30,7 @@ server::server(const std::string& address_str, const std::string& port_str, cons
     std::make_shared<listener>(
         io_context_,
         tcp::endpoint{ address, port },
-        doc_root,
+        doc_root_,
         request_handler_)
         ->run();
 

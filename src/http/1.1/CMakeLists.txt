@@ -9,13 +9,13 @@ set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wextra -rdynamic -O0 -g")
 
 # Sets the version we have
 #set(Boost_ADDITIONAL_VERSIONS "1.53")
-set(BOOST_ROOT /opt/bufu_fileserver/boost)
+set(BOOST_ROOT /opt/bufu_filebroker/boost_1_70_0/boost)
 
 # Requires multithreaded librariesg
 set(Boost_USE_MULTITHREADED ON)
 
 # Automatically finds boost
-find_package(Boost 1.67 REQUIRED COMPONENTS system)
+find_package(Boost 1.70 REQUIRED COMPONENTS system)
 
 # Using pthread
 find_package(Threads REQUIRED)
@@ -25,6 +25,9 @@ add_executable(main server/request.cpp server/request_handler.cpp server/listene
 
 # Specifies include paths
 target_include_directories(main PRIVATE server ${Boost_INCLUDE_DIRS})
+
+# Add bufu_filebroker project include
+target_include_directories(main PRIVATE ../..)
 
 # Workaround for pthread
 target_compile_options(main PUBLIC "-pthread")

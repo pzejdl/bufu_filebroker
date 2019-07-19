@@ -9,8 +9,8 @@ listener::listener(
         tcp::endpoint endpoint,
         std::string const& doc_root,
         const request_handler& req_handler)
-        : acceptor_(ioc)
-        , socket_(ioc)
+        : ioc_(ioc)
+        , acceptor_(boost::asio::make_strand(ioc))
         , doc_root_(doc_root)
         , request_handler_(req_handler)
 {
@@ -53,22 +53,19 @@ listener::listener(
 
 void listener::run()
 {
-    if(! acceptor_.is_open())
-        return;
     do_accept();
 }
 
 void listener::do_accept()
 {
     acceptor_.async_accept(
-        socket_,
-        std::bind(
+        boost::asio::make_strand(ioc_),
+        boost::beast::bind_front_handler(
             &listener::on_accept,
-            shared_from_this(),
-            std::placeholders::_1));
+            shared_from_this()));
 }
 
-void listener::on_accept(boost::system::error_code ec)
+void listener::on_accept(boost::system::error_code ec, tcp::socket socket)
 {
     if(ec)
     {
@@ -78,7 +75,7 @@ void listener::on_accept(boost::system::error_code ec)
     {
         // Create the session and run it
         std::make_shared<session>(
-            std::move(socket_),
+            std::move(socket),
             doc_root_,
             request_handler_)->run();
     }

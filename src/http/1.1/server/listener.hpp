@@ -2,10 +2,11 @@
 #define HTTPD_LISTENER_HPP
 
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/beast/core.hpp>
 #include <memory>
 #include <string>
 
-using tcp = boost::asio::ip::tcp; // from <boost/asio/ip/tcp.hpp>
+using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 
 namespace http_server {
 
@@ -14,8 +15,8 @@ class request_handler;
 
 // Accepts incoming connections and launches the sessions
 class listener : public std::enable_shared_from_this<listener> {
+    boost::asio::io_context& ioc_;
     tcp::acceptor acceptor_;
-    tcp::socket socket_;
     std::string const& doc_root_;
     const request_handler& request_handler_;
 
@@ -30,7 +31,7 @@ public:
 
     void do_accept();
 
-    void on_accept(boost::system::error_code ec);
+    void on_accept(boost::system::error_code ec, tcp::socket socket);
 };
 
 } // namespace http_server
