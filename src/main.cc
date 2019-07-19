@@ -126,7 +126,7 @@ unsigned long getParamUL(const http_server::request_t& req, const std::string& k
 
 #include <boost/chrono/io/time_point_io.hpp>
 #include <boost/chrono/chrono.hpp>
-	
+
 
 /*
  * The web application(s) are defined here
@@ -362,7 +362,7 @@ int main(int argc, char *argv[])
         bu::setIndexFilePrefix( indexFilePrefix );
     }
     catch(std::exception& e) {
-        std::cerr << "ERROR: " << e.what() << '\n';
+        LOG(ERROR) << "ERROR: " << e.what();
         return 1;
     }
 
