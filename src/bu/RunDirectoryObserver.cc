@@ -190,10 +190,9 @@ void RunDirectoryObserver::inotifyRunner()
      *    run1000030354_ls0017_EoLS.jsn
      *    run1000030348_ls0511_index020607.jsn
      * 
-     * NOTE: std::regex is broken until gcc 4.9.0. Using boost::regex
+     * NOTE: std::regex is broken until gcc 4.9.0. For that compiler one has to use boost::regex
      */
-    static const boost::regex fileFilter( "run[0-9]+_ls[0-9]+_.*\\.jsn" );
-    //const std::regex fileFilter( "run[0-9]+_ls[0-9]+_.*\\.jsn" );
+    static const std::regex fileFilter( "run[0-9]+_ls[0-9]+_.*\\.jsn" );
 
 
     const std::string runDirectoryPath = bu::getRunDirectory( runNumber ).string(); 
@@ -242,7 +241,7 @@ void RunDirectoryObserver::inotifyRunner()
         for (auto&& event : inotify.read()) {
             stats.startup.inotify.nbAllFiles++;
 
-            if ( boost::regex_match( event.name, fileFilter) ) {
+            if ( std::regex_match( event.name, fileFilter) ) {
                 stats.startup.inotify.nbJsnFiles++;
 
                 bu::FileInfo file = bu::temporary::parseFileName( event.name.c_str() );
@@ -300,7 +299,7 @@ void RunDirectoryObserver::inotifyRunner()
             //TODO: Make it optional
             //LOG(DEBUG) << "INOTIFY: '" << event.name << '\'';
 
-            if ( boost::regex_match( event.name, fileFilter) ) {
+            if ( std::regex_match( event.name, fileFilter) ) {
                 bu::FileInfo file = bu::temporary::parseFileName( event.name.c_str() );
                 //LOG(DEBUG) << file.fileName();
 
