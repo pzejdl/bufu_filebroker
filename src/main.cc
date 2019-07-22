@@ -157,17 +157,25 @@ void createWebApplications(http_server::request_handler& app)
         const std::string filePrefix = bu::getIndexFilePrefix();
         bu::FileInfo file;
         bu::RunDirectoryObserver::State state;
+        //TODO: HACK: Raw file mode is hardcoded
+        bu::RunDirectoryObserver::FileMode fileMode = bu::RunDirectoryObserver::FileMode::RAW;
         int lastEoLS;
 
         std::tie( file, state, lastEoLS ) = runDirectoryManager.popRunFile( runNumber, stopLS );
 
+        std::string fileExtension;
         // Rename the file before it is given to FU
         if (file.type != bu::FileInfo::FileType::EMPTY) { 
-            // TODO: Make it optional
-            renameIndexFile( runNumber, filePrefix, file.fileName() + ".jsn" );
+            // TODO: Make file rename it optional
+            switch (fileMode) {
+                case bu::RunDirectoryObserver::FileMode::JSN:   fileExtension = ".jsn"; break;
+                case bu::RunDirectoryObserver::FileMode::RAW:   fileExtension = ".raw"; break;
+            }
+            renameIndexFile( runNumber, filePrefix, file.fileName() + fileExtension );
         }
 
         os << "runnumber="  << runNumber << '\n';
+        os << "filemode="   << fileMode << '\n';
         os << "state="      << state << '\n';
 
         if (state == bu::RunDirectoryObserver::State::ERROR || state == bu::RunDirectoryObserver::State::NORUN) {
@@ -178,6 +186,7 @@ void createWebApplications(http_server::request_handler& app)
             assert( (uint32_t)runNumber == file.runNumber );
             os << "file=\""         << file.fileName() << "\"\n";
             os << "fileprefix=\""   << filePrefix << "\"\n";
+            os << "fileextension=\""<< fileExtension << "\"\n";
             os << "lumisection="    << file.lumiSection << '\n';
             os << "index="          << file.index << '\n';
         } else { 
