@@ -1,7 +1,7 @@
 #pragma once
 
 #include <boost/filesystem.hpp>
-#include <boost/regex.hpp>
+#include <regex>
 
 #include "bu/FileInfo.h"
 
@@ -29,5 +29,5 @@ namespace bu {
 
     typedef std::vector<bu::FileInfo> files_t;
     
-    files_t listFilesInRunDirectory(const std::string& runDirectory, const boost::regex& fileFilter);
+    files_t listFilesInRunDirectory(const std::string& runDirectory, const std::regex& fileFilter);
 }

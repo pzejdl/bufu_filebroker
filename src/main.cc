@@ -3,11 +3,12 @@
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 
-#include "tools/tools.h"
 #include "bu/RunDirectoryManager.h"
 #include "http/1.1/server/server.hpp"
 
+#include "tools/tools.h"
 #include "tools/log.h"
+#include "tools/time.h"
 
 #include "config.h"
 
@@ -124,10 +125,6 @@ unsigned long getParamUL(const http_server::request_t& req, const std::string& k
 }
 
 
-#include <boost/chrono/io/time_point_io.hpp>
-#include <boost/chrono/chrono.hpp>
-
-
 /*
  * The web application(s) are defined here
  */
@@ -197,9 +194,7 @@ void createWebApplications(http_server::request_handler& app)
 
         // TODO: DEBUG Make this optional
         if (false) { 
-            // TODO: Move timestamps to tools
-            std::cout << boost::chrono::time_fmt(boost::chrono::timezone::local) << boost::chrono::system_clock::now() << ' ';
-            //std::cout << boost::chrono::system_clock::now() << '\n';
+            std::cout << tools::time::localtime() << ' ';
 
             std::cout << "DEBUG POPFILE: " << state << ' ';
             if (file.type != bu::FileInfo::FileType::EMPTY) { 

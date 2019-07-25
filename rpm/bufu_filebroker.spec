@@ -41,19 +41,15 @@ mkdir -p ${RPM_BUILD_ROOT}/opt/bufu_filebroker/systemd
 mkdir -p ${RPM_BUILD_ROOT}/usr/lib/systemd/system
 
 install -m 755 bin/bufu_filebroker $RPM_BUILD_ROOT/opt/bufu_filebroker/bin/bufu_filebroker
-install -m 644 lib/libboost_chrono.so.1.67.0 $RPM_BUILD_ROOT/opt/bufu_filebroker/lib/libboost_chrono.so.1.67.0
-install -m 644 lib/libboost_filesystem.so.1.67.0 $RPM_BUILD_ROOT/opt/bufu_filebroker/lib/libboost_filesystem.so.1.67.0
-install -m 644 lib/libboost_regex.so.1.67.0 $RPM_BUILD_ROOT/opt/bufu_filebroker/lib/libboost_regex.so.1.67.0
-install -m 644 lib/libboost_system.so.1.67.0 $RPM_BUILD_ROOT/opt/bufu_filebroker/lib/libboost_system.so.1.67.0
-install -m 644 lib/libgcc_s.so $RPM_BUILD_ROOT/opt/bufu_filebroker/lib/libgcc_s.so
-install -m 644 lib/libgcc_s.so.1 $RPM_BUILD_ROOT/opt/bufu_filebroker/lib/libgcc_s.so.1
+install -m 644 lib/libboost_filesystem.so.1.70.0 $RPM_BUILD_ROOT/opt/bufu_filebroker/lib/libboost_filesystem.so.1.70.0
+install -m 644 lib/libboost_program_options.so.1.70.0 $RPM_BUILD_ROOT/opt/bufu_filebroker/lib/libboost_program_options.so.1.70.0
 
-#install -m 644 lib/libstdc++.so $RPM_BUILD_ROOT/opt/bufu_filebroker/lib/libstdc++.so
-cp -a lib/libstdc++.so $RPM_BUILD_ROOT/opt/bufu_filebroker/lib/
-#install -m 644 lib/libstdc++.so.6 $RPM_BUILD_ROOT/opt/bufu_filebroker/lib/libstdc++.so.6
-cp -a lib/libstdc++.so.6 $RPM_BUILD_ROOT/opt/bufu_filebroker/lib/
+##install -m 644 lib/libstdc++.so $RPM_BUILD_ROOT/opt/bufu_filebroker/lib/libstdc++.so
+#cp -a lib/libstdc++.so $RPM_BUILD_ROOT/opt/bufu_filebroker/lib/
+##install -m 644 lib/libstdc++.so.6 $RPM_BUILD_ROOT/opt/bufu_filebroker/lib/libstdc++.so.6
+#cp -a lib/libstdc++.so.6 $RPM_BUILD_ROOT/opt/bufu_filebroker/lib/
 
-install -m 644 lib/libstdc++.so.6.0.22 $RPM_BUILD_ROOT/opt/bufu_filebroker/lib/libstdc++.so.6.0.22
+#install -m 644 lib/libstdc++.so.6.0.22 $RPM_BUILD_ROOT/opt/bufu_filebroker/lib/libstdc++.so.6.0.22
 install -m 644 README $RPM_BUILD_ROOT/opt/bufu_filebroker/README
 install -m 755 scripts/bufu_filebroker.sh $RPM_BUILD_ROOT/opt/bufu_filebroker/scripts/bufu_filebroker.sh
 install -m 755 scripts/crash_notify.sh $RPM_BUILD_ROOT/opt/bufu_filebroker/scripts/crash_notify.sh
@@ -87,15 +83,8 @@ rm -rf $RPM_BUILD_ROOT
 %dir /opt/bufu_filebroker/scripts
 %dir /opt/bufu_filebroker/systemd
 /opt/bufu_filebroker/bin/bufu_filebroker
-/opt/bufu_filebroker/lib/libboost_chrono.so.1.67.0
-/opt/bufu_filebroker/lib/libboost_filesystem.so.1.67.0
-/opt/bufu_filebroker/lib/libboost_regex.so.1.67.0
-/opt/bufu_filebroker/lib/libboost_system.so.1.67.0
-/opt/bufu_filebroker/lib/libgcc_s.so
-/opt/bufu_filebroker/lib/libgcc_s.so.1
-/opt/bufu_filebroker/lib/libstdc++.so
-/opt/bufu_filebroker/lib/libstdc++.so.6
-/opt/bufu_filebroker/lib/libstdc++.so.6.0.22
+/opt/bufu_filebroker/lib/libboost_filesystem.so.1.70.0
+/opt/bufu_filebroker/lib/libboost_program_options.so.1.70.0
 /opt/bufu_filebroker/README
 /opt/bufu_filebroker/scripts/bufu_filebroker.sh
 /opt/bufu_filebroker/scripts/crash_notify.sh
