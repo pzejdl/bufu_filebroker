@@ -34,7 +34,7 @@ set(Boost_USE_MULTITHREADED ON)
 #set(Boost_USE_STATIC_LIBS   ON)
 
 # Automatically finds boost
-find_package(Boost 1.70 REQUIRED COMPONENTS system filesystem program_options chrono)
+find_package(Boost 1.70 REQUIRED COMPONENTS filesystem program_options)
 
 # Using pthread
 find_package(Threads REQUIRED)
