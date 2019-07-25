@@ -40,27 +40,14 @@ class session : public std::enable_shared_from_this<session> {
             // pointer in the class to keep it alive.
             self_.res_ = sp;
 
-            // bind_front_handler was introduced in Beast 1.70, but doesn't compile when this header file is included in .cpp file
-            // http::async_write(
-            //     self_.stream_,
-            //     *sp,
-            //     boost::beast::bind_front_handler(
-            //         &session::on_write,
-            //         self_.shared_from_this(),
-            //         sp->need_eof()));
-
             // Write the response
             http::async_write(
                 self_.stream_,
                 *sp,
-                boost::asio::bind_executor(
-                    self_.stream_.get_executor(),
-                    std::bind(
-                        &session::on_write,
-                        self_.shared_from_this(),
-                        std::placeholders::_1,
-                        std::placeholders::_2,
-                        sp->need_eof())));
+                boost::beast::bind_front_handler(
+                    &session::on_write,
+                    self_.shared_from_this(),
+                    sp->need_eof()));
         }
     };
 
@@ -127,9 +114,9 @@ public:
     }
 
     void on_write(
+        bool close,
         boost::system::error_code ec,
-        std::size_t bytes_transferred,
-        bool close)
+        std::size_t bytes_transferred)
     {
         boost::ignore_unused(bytes_transferred);
 

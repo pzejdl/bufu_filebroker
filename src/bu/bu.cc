@@ -1,9 +1,7 @@
-//#include <regex>
-#include <boost/regex.hpp>
-
-
 #include <boost/range.hpp>      // For boost::make_iterator_range
 #include <boost/filesystem.hpp>
+
+#include <regex>
 
 #include "bu.h"
 
@@ -35,7 +33,7 @@ const fs::path bu::getRunDirectory(int runNumber) {
 /* 
  * This will iterate over run directory and return files matching regular expressing in fileFilter.
  */
-bu::files_t bu::listFilesInRunDirectory(const std::string& runDirectory, const boost::regex& fileFilter)
+bu::files_t bu::listFilesInRunDirectory(const std::string& runDirectory, const std::regex& fileFilter)
 {
     files_t result;
 
@@ -46,7 +44,7 @@ bu::files_t bu::listFilesInRunDirectory(const std::string& runDirectory, const b
 
             const std::string fileName = std::move( dirEntry.path().filename().string() );
 
-            if ( boost::regex_match( fileName, fileFilter) ) {
+            if ( std::regex_match( fileName, fileFilter) ) {
                 bu::FileInfo file = bu::temporary::parseFileName( fileName.c_str() );
 
                 // Consistency check for the moment

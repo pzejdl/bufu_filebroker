@@ -3,10 +3,10 @@
 cmake_minimum_required(VERSION 2.8.10)
 
 project(bufu_filebroker)
-set (BUFU_FILEBROKER_VERSION "\"2.0-rc1\"")
+set (BUFU_FILEBROKER_VERSION "\"2.0-rc2\"")
 
 # C++ compiler flags
-set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wextra -rdynamic -O2 -g")
+set(CMAKE_CXX_FLAGS "-std=c++14 -Wall -Wextra -rdynamic -O2 -g")
 
 # TODO: - Static linking doesn't work at the moment
 #       - Check https://stackoverflow.com/questions/35116327/when-g-static-link-pthread-cause-segmentation-fault-why/45271521#45271521 
@@ -34,7 +34,7 @@ set(Boost_USE_MULTITHREADED ON)
 #set(Boost_USE_STATIC_LIBS   ON)
 
 # Automatically finds boost
-find_package(Boost 1.70 REQUIRED COMPONENTS system filesystem regex program_options chrono)
+find_package(Boost 1.70 REQUIRED COMPONENTS filesystem program_options)
 
 # Using pthread
 find_package(Threads REQUIRED)
