@@ -6,7 +6,7 @@ project(bufu_filebroker)
 set (BUFU_FILEBROKER_VERSION "\"2.0-rc2\"")
 
 # C++ compiler flags
-set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wextra -rdynamic -O2 -g")
+set(CMAKE_CXX_FLAGS "-std=c++14 -Wall -Wextra -rdynamic -O2 -g")
 
 # TODO: - Static linking doesn't work at the moment
 #       - Check https://stackoverflow.com/questions/35116327/when-g-static-link-pthread-cause-segmentation-fault-why/45271521#45271521 
