@@ -177,16 +177,12 @@ void RunDirectoryObserver::inotifyRunner()
      * 
      * NOTE: std::regex is broken until gcc 4.9.0. For that compiler one has to use boost::regex
      */
-<<<<<<< HEAD
     //const std::regex fileFilter( "run[0-9]+_ls[0-9]+_.*\\.jsn" );
-=======
-    static const std::regex fileFilter( "run[0-9]+_ls[0-9]+_.*\\.jsn" );
->>>>>>> develop
 
     //static const boost::regex fileFilter( "run[0-9]+_ls[0-9]+_.*\\.jsn" );
 
     //TODO: HACK: Allow RAW files for the moment
-    static const boost::regex fileFilter( "run[0-9]+_ls[0-9]+_(EoR.jsn|EoLS.jsn|.*\\.raw)" );
+    static const std::regex fileFilter( "run[0-9]+_ls[0-9]+_(EoR.jsn|EoLS.jsn|.*\\.raw)" );
 
 
     const std::string runDirectoryPath = bu::getRunDirectory( runNumber ).string(); 
