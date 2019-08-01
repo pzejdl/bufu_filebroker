@@ -11,23 +11,6 @@
 
 namespace bu {
 
-std::ostream& operator<< (std::ostream& os, RunDirectoryObserver::State state)
-{
-    switch (state)
-    {
-        case RunDirectoryObserver::State::INIT:     return os << "INIT" ;
-        case RunDirectoryObserver::State::STARTING: return os << "STARTING";
-        case RunDirectoryObserver::State::READY:    return os << "READY";
-        case RunDirectoryObserver::State::EOLS:     return os << "EOLS";
-        case RunDirectoryObserver::State::EOR:      return os << "EOR";
-        case RunDirectoryObserver::State::ERROR:    return os << "ERROR";
-        case RunDirectoryObserver::State::NORUN:    return os << "NORUN";
-        // Omit default case to trigger compiler warning for missing cases
-    };
-    return os;
-}
-
-
 RunDirectoryObserver::RunDirectoryObserver(int runNumber) : runNumber(runNumber) {}
 
 
@@ -59,6 +42,7 @@ std::string RunDirectoryObserver::getStats() const
     os << '\n';
     os << sep << "errorMessage=\""                          << errorMessage << "\"\n";
     os << '\n';
+    os << sep << "run.fileMode="                            << stats.run.fileMode << '\n';
     os << sep << "run.state="                               << stats.run.state << '\n';
     os << sep << "run.nbOutOfOrderIndexFiles="              << stats.run.nbOutOfOrderIndexFiles << '\n';
     os << sep << "run.lastProcessedFile=\""                 << stats.run.lastProcessedFile.fileName() << "\"\n";
@@ -189,10 +173,16 @@ void RunDirectoryObserver::inotifyRunner()
      *    run1000030354_ls0000_EoR.jsn
      *    run1000030354_ls0017_EoLS.jsn
      *    run1000030348_ls0511_index020607.jsn
+     *    run1000030348_ls0511_index020607.raw
      * 
      * NOTE: std::regex is broken until gcc 4.9.0. For that compiler one has to use boost::regex
      */
-    static const std::regex fileFilter( "run[0-9]+_ls[0-9]+_.*\\.jsn" );
+    //const std::regex fileFilter( "run[0-9]+_ls[0-9]+_.*\\.jsn" );
+
+    //static const boost::regex fileFilter( "run[0-9]+_ls[0-9]+_.*\\.jsn" );
+
+    //TODO: HACK: Allow RAW files for the moment
+    static const std::regex fileFilter( "run[0-9]+_ls[0-9]+_(EoR.jsn|EoLS.jsn|.*\\.raw)" );
 
 
     const std::string runDirectoryPath = bu::getRunDirectory( runNumber ).string(); 
@@ -475,6 +465,40 @@ std::tuple< FileInfo, RunDirectoryObserver::State, int > RunDirectoryObserver::p
 
     return std::make_tuple( file, state, lastEoLS );
 }
+
+
+/**************************************************************************
+ * FRIENDS
+ */
+
+
+std::ostream& operator<< (std::ostream& os, RunDirectoryObserver::State state)
+{
+    switch (state)
+    {
+        case RunDirectoryObserver::State::INIT:     return os << "INIT";
+        case RunDirectoryObserver::State::STARTING: return os << "STARTING";
+        case RunDirectoryObserver::State::READY:    return os << "READY";
+        case RunDirectoryObserver::State::EOLS:     return os << "EOLS";
+        case RunDirectoryObserver::State::EOR:      return os << "EOR";
+        case RunDirectoryObserver::State::ERROR:    return os << "ERROR";
+        case RunDirectoryObserver::State::NORUN:    return os << "NORUN";
+        // Omit default case to trigger compiler warning for missing cases
+    };
+    return os;
+}
+
+std::ostream& operator<< (std::ostream& os, const RunDirectoryObserver::FileMode fileMode)
+{
+    switch (fileMode)
+    {
+        case RunDirectoryObserver::FileMode::JSN:   return os << "JSN";
+        case RunDirectoryObserver::FileMode::RAW:   return os << "RAW";
+        // Omit default case to trigger compiler warning for missing cases
+    };
+    return os;   
+}
+
 
 
 } // namespace bu

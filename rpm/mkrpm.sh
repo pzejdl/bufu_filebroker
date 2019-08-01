@@ -1,7 +1,7 @@
 #!/bin/bash
 
 name=bufu_filebroker
-version=2.0.rc2
+version=2.0.0.alpha.1
 release=0.centos7
 
 SRC="../dist"

@@ -35,7 +35,7 @@ namespace bu {
 //typedef std::queue<bu::FileInfo> FileQueue_t;
 
 
-// TODO: We can make a queue internally having multiple queues based on lumisection numbers, that would perform better than priority_queue
+// TODO: We can make a queue, internally having multiple queues based on lumisection numbers, that would perform better than priority_queue
 typedef std::priority_queue< bu::FileInfo, std::vector<bu::FileInfo>, std::greater<bu::FileInfo> > FileQueue_t;
 
 
@@ -43,10 +43,28 @@ class RunDirectoryObserver {
 public:
     // Note that this class cannot be copied or moved because of the queue
 
+    /* 
+     * File mode defines what files we are expecting in the run directory
+     *   JSN - we expect *.jsn files
+     *   RAW   - we expect *.raw files with a binary header (describing the same information previously present in .jsn file)
+     */
+    enum class FileMode { JSN, RAW };
+    friend std::ostream& operator<< (std::ostream& os, const RunDirectoryObserver::FileMode fileMode);
+
+    /*
+     * State defines current state of directory observer
+     *   INIT     - Initial state before inotify thread is started, this state is not visible outside.
+     *   STARTING - Inotify thread was started, run direcotry is being scanned for files.
+     *   READY    - Waiting for new files.
+     *   EOLS     - EoLS file was found.
+     *   EOR      - EoR file was found.
+     *   ERROR    - Any error detected. This state is non recoverable.
+     *   NORUN    - Special error case, when run directory doesn't exist. This state is non recoverable. 
+     */
     enum class State { INIT, STARTING, READY, EOLS, EOR, ERROR, NORUN };
     friend std::ostream& operator<< (std::ostream& os, const RunDirectoryObserver::State state);
 
-    RunDirectoryObserver(int runNumber);
+    RunDirectoryObserver(int runNumber/*, FileMode fileMode*/);
     ~RunDirectoryObserver();
 
     RunDirectoryObserver(const RunDirectoryObserver&) = delete;
@@ -107,6 +125,8 @@ private:
         uint32_t nbJsnFilesOptimized = 0;
 
         struct RunDirectory {
+            //TODO: HACK: RAW file mode is hardcoded for the moment 
+            FileMode fileMode {FileMode::RAW};          // Which files to expect (INDEX or RAW)
             State state { State::INIT };
             int nbOutOfOrderIndexFiles = 0;             // How many index files were received out of order (lower LS number after higher LS number)
             FileInfo lastProcessedFile;                 // Last processed file
