@@ -18,16 +18,25 @@ std::tuple< FileInfo, RunDirectoryObserver::State, int > RunDirectoryManager::po
     return observer->popRunFile( stopLS );
 }
 
-
+/*
+ * This function is not meant to run many times
+ */
 const std::string RunDirectoryManager::getStats() 
 {
     std::ostringstream os;
     os << "runNumbers=" << runDirectoryObservers_.size() << '\n';
     {
         std::lock_guard<std::mutex> lock(runDirectoryManagerLock_);
-        for (const auto& pair : runDirectoryObservers_) {
+
+        // Get the list of run numbers and sort them descending
+        std::vector<int> runNumbers( runDirectoryObservers_.size() );
+        std::transform(runDirectoryObservers_.begin(), runDirectoryObservers_.end(), runNumbers.begin(), [](auto pair){return pair.first;});
+        std::sort( runNumbers.begin(), runNumbers.end(), std::greater<int>() );
+
+        for (const int runNumber : runNumbers) {
+            const auto iter = runDirectoryObservers_.find( runNumber );
             // Since we are running locked, we don't have to take the ownership of the shared pointer
-            const RunDirectoryObserverPtr& observer = pair.second;
+            const RunDirectoryObserverPtr& observer = iter->second;
             os << observer->getStats();
         }
     }

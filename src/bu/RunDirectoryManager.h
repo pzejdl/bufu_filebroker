@@ -19,7 +19,7 @@ public:
      */
     std::tuple< FileInfo, RunDirectoryObserver::State, int > popRunFile(int runNumber, int stopLS = -1);
 
-    // Get statistics for all runs
+    // Get statistics for all runs sorted
     const std::string getStats();
 
     // Get statistics for a particular run
