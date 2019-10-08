@@ -13,6 +13,7 @@ namespace bu {
 
 RunDirectoryObserver::RunDirectoryObserver(int runNumber) : runNumber(runNumber) {}
 
+
 RunDirectoryObserver::~RunDirectoryObserver()
 {
     LOG(DEBUG) << "RunDirectoryObserver::~RunDirectoryObserver().";
@@ -41,6 +42,7 @@ std::string RunDirectoryObserver::getStats() const
     os << '\n';
     os << sep << "errorMessage=\""                          << errorMessage << "\"\n";
     os << '\n';
+    os << sep << "run.fileMode="                            << stats.run.fileMode << '\n';
     os << sep << "run.state="                               << stats.run.state << '\n';
     os << sep << "run.nbOutOfOrderIndexFiles="              << stats.run.nbOutOfOrderIndexFiles << '\n';
     os << sep << "run.lastProcessedFile=\""                 << stats.run.lastProcessedFile.fileName() << "\"\n";
@@ -69,23 +71,9 @@ const std::string& RunDirectoryObserver::getError() const
 }
 
 
-// void RunDirectoryObserver::setError(const std::string& errorMessage)
-// {
-//     stats.run.state = bu::RunDirectoryObserver::State::ERROR;
-//     stats.fu.state = bu::RunDirectoryObserver::State::ERROR;
-//     this->errorMessage = errorMessage;
-// }
-
-
-void RunDirectoryObserver::run()
-{
-    try {
-        runner();
-    }
-    catch(const std::exception& e) {
-        BACKTRACE_AND_RETHROW( std::runtime_error, "Exception detected." );
-    } 
-}
+/**************************************************************************
+ * PRIVATE
+ */
 
 
 void RunDirectoryObserver::pushFile(bu::FileInfo file)
@@ -100,46 +88,40 @@ void RunDirectoryObserver::pushFile(bu::FileInfo file)
 }
 
 
-void RunDirectoryObserver::updateRunDirectoryStats(const bu::FileInfo& file)
+template< class T >
+void updateStats(int runNumber, const bu::FileInfo& file, T& s)
 {
     // Sanity check. In principle always OK.
     assert( (uint32_t)runNumber == file.runNumber );
     assert( file.type != FileInfo::FileType::EMPTY );
 
     if (file.isEoLS()) {
-        stats.run.lastEoLS = file.lumiSection;
-        stats.run.state = State::EOLS;
+        s.lastEoLS = file.lumiSection;
+        s.state = bu::RunDirectoryObserver::State::EOLS;
     } else if (file.isEoR()) {
-        stats.run.state = bu::RunDirectoryObserver::State::EOR;
+        s.state = bu::RunDirectoryObserver::State::EOR;
     } else {
         assert( file.type == bu::FileInfo::FileType::INDEX );
-        stats.run.state = bu::RunDirectoryObserver::State::READY;
-    }
+        s.state = bu::RunDirectoryObserver::State::READY;
+    }    
+}
 
+
+void RunDirectoryObserver::updateRunDirectoryStats(const bu::FileInfo& file)
+{
+    updateStats(runNumber, file, stats.run);
     stats.run.lastProcessedFile = file;
 }
 
 
 void RunDirectoryObserver::updateFUStats(const bu::FileInfo& file)
 {
-    // Sanity check. In principle always OK.
-    assert( (uint32_t)runNumber == file.runNumber );
-    assert( file.type != FileInfo::FileType::EMPTY );
-
-    if (file.isEoLS()) {
-        stats.fu.lastEoLS = file.lumiSection;
-        stats.fu.state = State::EOLS;
-    } else if (file.isEoR()) {
-        stats.fu.state = bu::RunDirectoryObserver::State::EOR;
-    } else {
-        assert( file.type == bu::FileInfo::FileType::INDEX );
-        stats.fu.state = bu::RunDirectoryObserver::State::READY;
-    }
-
+    updateStats(runNumber, file, stats.fu);
     stats.fu.lastPoppedFile = file;
 }
 
 
+// Skip empty lumisections
 void RunDirectoryObserver::optimizeAndPushFiles(const bu::files_t& files) 
 {
     bool sawIndexFile = false;
@@ -165,11 +147,22 @@ void RunDirectoryObserver::optimizeAndPushFiles(const bu::files_t& files)
 }
 
 
+void RunDirectoryObserver::runner()
+{
+    try {
+        inotifyRunner();
+    }
+    catch(const std::exception& e) {
+        BACKTRACE_AND_RETHROW( std::runtime_error, "Exception detected." );
+    } 
+}
+
+
 /*
  * The main function responsible for finding files on BU.
  * Is run in a separate thread for each run directory that FU asks. 
  */
-void RunDirectoryObserver::runner()
+void RunDirectoryObserver::inotifyRunner()
 {
     LOG(INFO) << TOOLS_THREAD_INFO();
     WRITE_ONCE(isRunning, true);
@@ -180,11 +173,16 @@ void RunDirectoryObserver::runner()
      *    run1000030354_ls0000_EoR.jsn
      *    run1000030354_ls0017_EoLS.jsn
      *    run1000030348_ls0511_index020607.jsn
+     *    run1000030348_ls0511_index020607.raw
      * 
-     * NOTE: std::regex is broken until gcc 4.9.0. Using boost::regex
+     * NOTE: std::regex is broken until gcc 4.9.0. For that compiler one has to use boost::regex
      */
-    static const boost::regex fileFilter( "run[0-9]+_ls[0-9]+_.*\\.jsn" );
     //const std::regex fileFilter( "run[0-9]+_ls[0-9]+_.*\\.jsn" );
+
+    //static const boost::regex fileFilter( "run[0-9]+_ls[0-9]+_.*\\.jsn" );
+
+    //TODO: HACK: Allow RAW files for the moment
+    static const std::regex fileFilter( "run[0-9]+_ls[0-9]+_(EoR.jsn|EoLS.jsn|.*\\.raw)" );
 
 
     const std::string runDirectoryPath = bu::getRunDirectory( runNumber ).string(); 
@@ -199,7 +197,6 @@ void RunDirectoryObserver::runner()
     try {
         inotify.add_watch( runDirectoryPath, IN_CLOSE_WRITE | IN_MOVED_TO );
     }
-    //TODO: Move to the end of this function and make a more general case
     catch(const std::system_error& e) {
         if (e.code().value() == static_cast<int>(std::errc::no_such_file_or_directory)) {
             // Special handling for a case when the run directory doesn't exists (Srecko's request)
@@ -234,7 +231,7 @@ void RunDirectoryObserver::runner()
         for (auto&& event : inotify.read()) {
             stats.startup.inotify.nbAllFiles++;
 
-            if ( boost::regex_match( event.name, fileFilter) ) {
+            if ( std::regex_match( event.name, fileFilter) ) {
                 stats.startup.inotify.nbJsnFiles++;
 
                 bu::FileInfo file = bu::temporary::parseFileName( event.name.c_str() );
@@ -264,7 +261,6 @@ void RunDirectoryObserver::runner()
 
     optimizeAndPushFiles(files);
 
-    // TODO: Check if FUs can start reading earlier...
     // FUs can start reading from our queue NOW
 
     if ( queue.empty() ) {
@@ -293,7 +289,7 @@ void RunDirectoryObserver::runner()
             //TODO: Make it optional
             //LOG(DEBUG) << "INOTIFY: '" << event.name << '\'';
 
-            if ( boost::regex_match( event.name, fileFilter) ) {
+            if ( std::regex_match( event.name, fileFilter) ) {
                 bu::FileInfo file = bu::temporary::parseFileName( event.name.c_str() );
                 //LOG(DEBUG) << file.fileName();
 
@@ -330,13 +326,157 @@ void RunDirectoryObserver::runner()
 }
 
 
+/*
+ * Test whether we have to artificially force EOLS if stopLS is greater then the current lumiSection
+ * or we have EoLS in the stopLS lumiSection.
+ */
+bool RunDirectoryObserver::isStopLS(int stopLS) const
+{
+    if (stopLS < 0) 
+        return false;
+    
+    if (!queue.empty()) {
+        const FileInfo& file = queue.top();
+        if  ( 
+            ( (long)file.lumiSection == stopLS && file.type == FileInfo::FileType::EOLS ) ||
+            ( (long)file.lumiSection > stopLS ) 
+            ) { 
+            return true;
+        }    
+    } else if (stats.fu.lastEoLS >= stopLS) {
+        return true;
+    }
+
+    return false;
+}
+
+
+/**************************************************************************
+ * PUBLIC
+ */
+
+
+// Starts the inotify thread
+void RunDirectoryObserver::start()
+{
+    assert( stats.run.state == RunDirectoryObserver::State::INIT );
+
+    runnerThread = std::thread(&RunDirectoryObserver::runner, this);
+    // FIXME: We detach because at the moment we don't have a way how to stop the thread
+    runnerThread.detach();
+    stats.run.state = RunDirectoryObserver::State::STARTING;
+    stats.fu.state = RunDirectoryObserver::State::STARTING;
+}
+
+
+void RunDirectoryObserver::stopAndWait()
+{
+    WRITE_ONCE(stopRequest, true);
+
+    LOG(DEBUG) << "Waiting for InotifyRunner to stop";
+    if (runnerThread.joinable()) {
+        runnerThread.join();
+    }
+    // FIXME: Better is to use mutex, the thread will sleep automaticaly during wait...
+    while ( ! READ_ONCE(isRunning) ) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    };
+}
+
+
+std::tuple< FileInfo, RunDirectoryObserver::State, int > RunDirectoryObserver::popRunFile(int stopLS)
+{
+    static const FileInfo emptyFile; 
+    FileInfo file;  // Is empty on construction
+    RunDirectoryObserver::State state;
+    int lastEoLS;
+
+    std::lock_guard<std::mutex> lock(runDirectoryObserverLock);
+
+    stats.fu.nbRequests++;
+
+    if (isStopLS(stopLS)) {
+        stats.fu.stopLS = stopLS;
+        return std::make_tuple( emptyFile, RunDirectoryObserver::State::EOR, stopLS );
+    }
+
+    while (!queue.empty()) {
+        const FileInfo& peekFile = queue.top();
+
+        //LOG(DEBUG) << "peekFile=" << peekFile.fileName();
+
+        // Check for the out of order files
+        if (peekFile.type != FileInfo::FileType::EOR) {
+            // Consistency checks
+            assert( (int)peekFile.lumiSection > stats.fu.lastEoLS );
+
+            // If we receive a file for a having larger LS than the expected, we keep it in the queue and wait for EoLS
+            if ((int)peekFile.lumiSection > (stats.fu.lastEoLS + 1)) {
+                stats.fu.nbWaitsForEoLS++;
+                file.type = FileInfo::FileType::EMPTY;
+                break;
+            }
+        }
+        
+        file = std::move( peekFile );
+        queue.pop();
+
+        // Consistency check
+        if ( 
+            stats.fu.lastPoppedFile.lumiSection > file.lumiSection &&
+            stats.fu.lastPoppedFile.type != FileInfo::FileType::EMPTY &&
+            file.type != FileInfo::FileType::EOR
+        ) {
+            std::ostringstream os;
+            os  << "Consistency check failed, file order is broken:\n"
+                << "  Going to give file:            " << file.fileName() << '\n' 
+                << "  But the last file given to FU: " << stats.fu.lastPoppedFile.fileName();
+            LOG(FATAL) << os.str();
+            THROW( std::runtime_error, os.str() );
+        }
+
+        updateFUStats( file );
+
+        // Is EoR then we can free the queue
+        if (file.type == FileInfo::FileType::EOR) {
+            // At this moment the queue has to be empty!
+            assert( queue.empty() );
+
+            // C++11 allows us to move in a new empty queue, as a side effect the memory occupied by the previous is freed...  
+            FileQueue_t tempQueue;
+            queue = std::move( tempQueue );
+        }
+
+        // Skip EoLS and EoR
+        if (file.type == FileInfo::FileType::EOLS || file.type == FileInfo::FileType::EOR) {
+            file.type = FileInfo::FileType::EMPTY;
+            stats.nbJsnFilesOptimized++; 
+            continue;
+        }
+        break;
+    }
+    state = stats.fu.state;
+    lastEoLS = stats.fu.lastEoLS;
+    
+
+    if ( file.type == FileInfo::FileType::EMPTY ) {
+        stats.fu.nbEmptyReplies++; 
+    }
+
+    return std::make_tuple( file, state, lastEoLS );
+}
+
+
+/**************************************************************************
+ * FRIENDS
+ */
 
 
 std::ostream& operator<< (std::ostream& os, RunDirectoryObserver::State state)
 {
     switch (state)
     {
-        case RunDirectoryObserver::State::INIT:     return os << "INIT" ;
+        case RunDirectoryObserver::State::INIT:     return os << "INIT";
         case RunDirectoryObserver::State::STARTING: return os << "STARTING";
         case RunDirectoryObserver::State::READY:    return os << "READY";
         case RunDirectoryObserver::State::EOLS:     return os << "EOLS";
@@ -348,72 +488,17 @@ std::ostream& operator<< (std::ostream& os, RunDirectoryObserver::State state)
     return os;
 }
 
+std::ostream& operator<< (std::ostream& os, const RunDirectoryObserver::FileMode fileMode)
+{
+    switch (fileMode)
+    {
+        case RunDirectoryObserver::FileMode::JSN:   return os << "JSN";
+        case RunDirectoryObserver::FileMode::RAW:   return os << "RAW";
+        // Omit default case to trigger compiler warning for missing cases
+    };
+    return os;   
+}
+
+
+
 } // namespace bu
-
-
-/*
-class RunDirectoryObserver {
-
-public:    
-
-    RunDirectoryObserver(int runNumber) : runNumber_(runNumber) {}
-    ~RunDirectoryObserver()
-    {
-        std::cout << "DEBUG: RunDirectoryObserver: Destructor called" << std::endl;
-        running_ = false;
-        if (runner_.joinable()) {
-            runner_.join();
-        }
-    }
-
-    RunDirectoryObserver(const RunDirectoryObserver&) = delete;
-    RunDirectoryObserver& operator=(const RunDirectoryObserver&) = delete;
-
-
-    void start() 
-    {
-        assert( state_ == State::INIT );
-        runner_ = std::thread(&RunDirectoryObserver::run, this);
-        runner_.detach();
-        state_ = State::STARTING;
-    }
-
-
-    void stopRequest()
-    {
-        running_ = false;    
-    }
-
-
-    State state() const 
-    {
-        return state_;
-    }
-
-    FileNameQueue_t& queue()
-    {
-        return queue_;
-    }
-
-private:
-
-    void run()
-    {
-        while (running_) {
-            std::cout << "RunDirectoryObserver: Alive" << std::endl;
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        }
-        std::cout << "RunDirectoryObserver: Finished" << std::endl;
-        state_ = State::STOP;
-    }
-
-private:
-    std::atomic<State> state_ { State::INIT };
-    std::atomic<bool> running_{ true };
-
-    int runNumber_;
-    std::thread runner_ {};
-
-    FileNameQueue_t queue_;
-};
-*/

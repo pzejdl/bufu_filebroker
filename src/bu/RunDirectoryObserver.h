@@ -35,48 +35,70 @@ namespace bu {
 //typedef std::queue<bu::FileInfo> FileQueue_t;
 
 
-// TODO: Use a sorted queue that is better for keepeing files...
+// TODO: We can make a queue, internally having multiple queues based on lumisection numbers, that would perform better than priority_queue
 typedef std::priority_queue< bu::FileInfo, std::vector<bu::FileInfo>, std::greater<bu::FileInfo> > FileQueue_t;
 
 
-struct RunDirectoryObserver {
-    // Note that this class cannot be copied or moved because of queue
+class RunDirectoryObserver {
+public:
+    // Note that this class cannot be copied or moved because of the queue
 
+    /* 
+     * File mode defines what files we are expecting in the run directory
+     *   JSN - we expect *.jsn files
+     *   RAW   - we expect *.raw files with a binary header (describing the same information previously present in .jsn file)
+     */
+    enum class FileMode { JSN, RAW };
+    friend std::ostream& operator<< (std::ostream& os, const RunDirectoryObserver::FileMode fileMode);
+
+    /*
+     * State defines current state of directory observer
+     *   INIT     - Initial state before inotify thread is started, this state is not visible outside.
+     *   STARTING - Inotify thread was started, run direcotry is being scanned for files.
+     *   READY    - Waiting for new files.
+     *   EOLS     - EoLS file was found.
+     *   EOR      - EoR file was found.
+     *   ERROR    - Any error detected. This state is non recoverable.
+     *   NORUN    - Special error case, when run directory doesn't exist. This state is non recoverable. 
+     */
     enum class State { INIT, STARTING, READY, EOLS, EOR, ERROR, NORUN };
     friend std::ostream& operator<< (std::ostream& os, const RunDirectoryObserver::State state);
 
-
-    RunDirectoryObserver(int runNumber);
+    RunDirectoryObserver(int runNumber/*, FileMode fileMode*/);
     ~RunDirectoryObserver();
 
-
-    // RunDirectoryObserver(const RunDirectoryObserver&) = delete;
-    // RunDirectoryObserver& operator=(const RunDirectoryObserver&) = delete;
+    RunDirectoryObserver(const RunDirectoryObserver&) = delete;
+    RunDirectoryObserver& operator=(const RunDirectoryObserver&) = delete;
     
-
     std::string getStats() const;
-
     const std::string& getError() const;
 
-    // Sets error message and goes to ERROR state
-    // is unsafe
-    //void setError(const std::string& errorMessage);
+    // Start inotify thread
+    void start();
+    void stopAndWait();
+    /*
+     * Returns a tuple of:
+     *   file, state, lastEoLS
+     * 
+     * TODO: Candidate for structured binding with std::optional in C++17
+     */
+    std::tuple< FileInfo, RunDirectoryObserver::State, int > popRunFile(int stopLS = -1);
 
-    void run();
-
+private:
+    bool isStopLS(int stopLS) const;
+    // The main runner that will call inotifyRunner()
     void runner();
-
+    void inotifyRunner();
     void pushFile(bu::FileInfo file);
-    //void updateStats(const bu::FileInfo& file, bool updateFU);
     void updateRunDirectoryStats(const bu::FileInfo& file);
     void updateFUStats(const bu::FileInfo& file);
     void optimizeAndPushFiles(const files_t& files);
 
-
+private:
     int runNumber;
     FileQueue_t queue;
 
-    // This error message is valid only if state is ERROR
+    // This error message is valid only if the state is ERROR
     std::string errorMessage;
 
     std::thread runnerThread;
@@ -103,6 +125,8 @@ struct RunDirectoryObserver {
         uint32_t nbJsnFilesOptimized = 0;
 
         struct RunDirectory {
+            //TODO: HACK: RAW file mode is hardcoded for the moment 
+            FileMode fileMode {FileMode::RAW};          // Which files to expect (INDEX or RAW)
             State state { State::INIT };
             int nbOutOfOrderIndexFiles = 0;             // How many index files were received out of order (lower LS number after higher LS number)
             FileInfo lastProcessedFile;                 // Last processed file

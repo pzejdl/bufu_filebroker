@@ -1,7 +1,7 @@
 #pragma once
 
 #include <boost/filesystem.hpp>
-#include <boost/regex.hpp>
+#include <regex>
 
 #include "bu/FileInfo.h"
 
@@ -21,11 +21,13 @@ namespace bu {
         }
     };
 
-    const fs::path getRunDirectory(int runNumber);
+    void setBaseDirectory(const fs::path& path);
+    void setIndexFilePrefix(const std::string& prefix);
     const std::string& getIndexFilePrefix();
+    const fs::path getRunDirectory(int runNumber);
 
 
     typedef std::vector<bu::FileInfo> files_t;
     
-    files_t listFilesInRunDirectory(const std::string& runDirectory, const boost::regex& fileFilter);
+    files_t listFilesInRunDirectory(const std::string& runDirectory, const std::regex& fileFilter);
 }

@@ -2,6 +2,7 @@
 #define HTTP_REQUEST_HANDLER_IPP
 
 #include <iostream>
+#include <boost/beast/core.hpp>
 #include <boost/beast/version.hpp>
 
 namespace http_server {
@@ -16,6 +17,10 @@ void request_handler::handle_request(
     http_server::request_t && req,
     Send&& send) const
 {
+
+    // Suppress warning for doc_root not being used
+    (void)doc_root;
+
     //TODO: Move these lambdas to a stock_reply
 
     // Returns a bad request response
@@ -26,7 +31,7 @@ void request_handler::handle_request(
         res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
         res.set(http::field::content_type, "text/html");
         res.keep_alive(req.keep_alive());
-        res.body() = why.to_string();
+        res.body() = std::string(why);
         res.prepare_payload();
         return res;
     };
@@ -39,12 +44,13 @@ void request_handler::handle_request(
         res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
         res.set(http::field::content_type, "text/html");
         res.keep_alive(req.keep_alive());
-        res.body() = "The resource '" + target.to_string() + "' was not found.";
+        res.body() = "The resource '" + std::string(target) + "' was not found.";
         res.prepare_payload();
         return res;
     };
 
     // Returns a server error response
+    /* NOT USED now
     auto const server_error =
     [&req](boost::beast::string_view what)
     {
@@ -56,6 +62,7 @@ void request_handler::handle_request(
         res.prepare_payload();
         return res;
     };
+    */
 
     // Make sure we can handle the method
     if( req.method() != http::verb::get) {

@@ -1,35 +1,39 @@
-//#include <regex>
-#include <boost/regex.hpp>
-
-
 #include <boost/range.hpp>      // For boost::make_iterator_range
 #include <boost/filesystem.hpp>
+
+#include <regex>
 
 #include "bu.h"
 
 namespace fs = boost::filesystem;
 
+static fs::path baseDirectory = "/fff/ramdisk";
+static std::string indexFilePrefix = "fu/";
 
-/* Temporarily put here, but probably make configurable */
-static const fs::path baseDirectory = "/fff/ramdisk";
-static const std::string indexFilePrefix = "fu/";
+void bu::setBaseDirectory(const fs::path& path)
+{
+    baseDirectory = path;
+}
 
-const fs::path bu::getRunDirectory(int runNumber) {
-    return baseDirectory / ("run" + std::to_string(runNumber)); 
+void bu::setIndexFilePrefix(const std::string& prefix) {
+    fs::path prefixPath = prefix;
+    fs::path path = prefixPath / "f";
+    indexFilePrefix = prefix;
 }
 
 const std::string& bu::getIndexFilePrefix() {
     return indexFilePrefix;
 }
 
-
-//#include <boost/exception/diagnostic_information.hpp> 
+const fs::path bu::getRunDirectory(int runNumber) {
+    return baseDirectory / ("run" + std::to_string(runNumber)); 
+}
 
 
 /* 
  * This will iterate over run directory and return files matching regular expressing in fileFilter.
  */
-bu::files_t bu::listFilesInRunDirectory(const std::string& runDirectory, const boost::regex& fileFilter)
+bu::files_t bu::listFilesInRunDirectory(const std::string& runDirectory, const std::regex& fileFilter)
 {
     files_t result;
 
@@ -40,11 +44,15 @@ bu::files_t bu::listFilesInRunDirectory(const std::string& runDirectory, const b
 
             const std::string fileName = std::move( dirEntry.path().filename().string() );
 
-            if ( boost::regex_match( fileName, fileFilter) ) {
+            if ( std::regex_match( fileName, fileFilter) ) {
                 bu::FileInfo file = bu::temporary::parseFileName( fileName.c_str() );
+                std::cout << fileName << " : " << file << '\n';
 
                 // Consistency check for the moment
-                assert( fileName == (file.fileName() + ".jsn") );
+                //assert( fileName == (file.fileName() + ".jsn") );
+                //TODO: HACK: Allow raw files
+                assert( fileName == (file.fileName() + ".jsn") || fileName == (file.fileName() + ".raw") );
+
 
                 result.push_back( std::move(file) );
             }

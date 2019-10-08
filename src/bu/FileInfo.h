@@ -10,11 +10,12 @@
 namespace bu {
 
     struct FileInfo {
-        enum class FileType : uint32_t { INDEX, EOLS, EOR, EMPTY };
+        enum class FileType : uint32_t { /* RAW,*/ INDEX, EOLS, EOR, EMPTY };
 
         friend std::ostream& operator<< (std::ostream& os, const FileInfo::FileType type)
         {
             switch (type) {
+                //case FileInfo::FileType::RAW:   return os << "raw";
                 case FileInfo::FileType::INDEX: return os << "index" ;
                 case FileInfo::FileType::EOLS:  return os << "EoLS";
                 case FileInfo::FileType::EOR:   return os << "EoR";

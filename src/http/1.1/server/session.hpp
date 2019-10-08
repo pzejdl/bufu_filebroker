@@ -1,8 +1,6 @@
 #ifndef HTTPD_SESSION_HPP
 #define HTTPD_SESSION_HPP
 
-#include <boost/asio/bind_executor.hpp>
-#include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
@@ -12,8 +10,7 @@
 #include "fail.hpp"
 #include "request_handler.hpp"
 
-using tcp = boost::asio::ip::tcp; // from <boost/asio/ip/tcp.hpp>
-namespace http = boost::beast::http; // from <boost/beast/http.hpp>
+using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 
 namespace http_server {
 
@@ -45,21 +42,16 @@ class session : public std::enable_shared_from_this<session> {
 
             // Write the response
             http::async_write(
-                self_.socket_,
+                self_.stream_,
                 *sp,
-                boost::asio::bind_executor(
-                    self_.strand_,
-                    std::bind(
-                        &session::on_write,
-                        self_.shared_from_this(),
-                        std::placeholders::_1,
-                        std::placeholders::_2,
-                        sp->need_eof())));
+                boost::beast::bind_front_handler(
+                    &session::on_write,
+                    self_.shared_from_this(),
+                    sp->need_eof()));
         }
     };
 
-    tcp::socket socket_;
-    boost::asio::strand<boost::asio::io_context::executor_type> strand_;
+    boost::beast::tcp_stream stream_;
     boost::beast::flat_buffer buffer_;
     std::string const& doc_root_;
     //http::request<http::string_body> req_;
@@ -70,12 +62,11 @@ class session : public std::enable_shared_from_this<session> {
 
 public:
     // Take ownership of the socket
-    explicit session(
-        tcp::socket socket,
+    session(
+        tcp::socket&& socket,
         std::string const& doc_root,
         const request_handler& req_handler)
-        : socket_(std::move(socket))
-        , strand_(socket_.get_executor())
+        : stream_(std::move(socket))
         , doc_root_(doc_root)
         , lambda_(*this)
         , request_handler_(req_handler)
@@ -94,15 +85,14 @@ public:
         // otherwise the operation behavior is undefined.
         req_ = {};
 
+        // Set the timeout.
+        stream_.expires_after(std::chrono::seconds(30));
+
         // Read a request
-        http::async_read(socket_, buffer_, req_,
-            boost::asio::bind_executor(
-                strand_,
-                std::bind(
-                    &session::on_read,
-                    shared_from_this(),
-                    std::placeholders::_1,
-                    std::placeholders::_2)));
+        http::async_read(stream_, buffer_, req_,
+            boost::beast::bind_front_handler(
+                &session::on_read,
+                shared_from_this()));
     }
 
     void on_read(
@@ -124,9 +114,9 @@ public:
     }
 
     void on_write(
+        bool close,
         boost::system::error_code ec,
-        std::size_t bytes_transferred,
-        bool close)
+        std::size_t bytes_transferred)
     {
         boost::ignore_unused(bytes_transferred);
 
@@ -150,7 +140,7 @@ public:
     {
         // Send a TCP shutdown
         boost::system::error_code ec;
-        socket_.shutdown(tcp::socket::shutdown_send, ec);
+        stream_.socket().shutdown(tcp::socket::shutdown_send, ec);
 
         // At this point the connection is closed gracefully
     }
