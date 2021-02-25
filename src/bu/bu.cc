@@ -46,7 +46,7 @@ bu::files_t bu::listFilesInRunDirectory(const std::string& runDirectory, const s
 
             if ( std::regex_match( fileName, fileFilter) ) {
                 bu::FileInfo file = bu::temporary::parseFileName( fileName.c_str() );
-                std::cout << fileName << " : " << file << '\n';
+                //std::cout << fileName << " : " << file << '\n';
 
                 // Consistency check for the moment
                 //assert( fileName == (file.fileName() + ".jsn") );
